@@ -11,21 +11,21 @@ class DirectADC:
         print ("Initializing Direct ADC...\n")
 
         # General info
-        self.mo = mf.mo_coeff.copy()
-        self.nmo = self.mo.shape[1]
+        self.mo_a = mf.mo_coeff.copy()
+        self.mo_b = mf.mo_coeff.copy()
+        self.nmo = self.mo_a.shape[1]
         self.nelec = mf.mol.nelectron
+        self.nelec_a = mf.mol.nelectron // 2
+        self.nelec_b = mf.mol.nelectron // 2
+        self.nocc_a = self.nelec_a
+        self.nocc_b = self.nelec_b
+        self.nvir_a = self.nmo - self.nelec_a
+        self.nvir_b = self.nmo - self.nelec_b
         self.enuc = mf.mol.energy_nuc()
-        self.mo_energy = mf.mo_energy.copy()
+        self.mo_energy_a = mf.mo_energy.copy()
+        self.mo_energy_b = mf.mo_energy.copy()
         self.e_scf = mf.e_tot
  
-        # General info (spin-orbital)
-        self.nmo_so = 2 * self.nmo
-        self.nocc_so = mf.mol.nelectron
-        self.nvir_so = self.nmo_so - self.nocc_so
-        self.mo_energy_so = np.zeros(self.nmo_so)
-        self.mo_energy_so[::2] = self.mo_energy.copy()
-        self.mo_energy_so[1::2] = self.mo_energy.copy()
-
         # Direct ADC specific variables
         self.nstates = 10
         self.step = 0.01
@@ -35,27 +35,34 @@ class DirectADC:
         self.maxiter = 200
         self.method = "adc(2)"
 
-        # Integrals
-        mo_to_so = np.zeros((self.nmo, self.nmo_so))
-        mo_to_so[:,::2] = self.mo.copy()
-        mo_to_so[:,1::2] = self.mo.copy()
-
+        # Integral transformation
         h1e_ao = mf.get_hcore()
-        self.h1e_so = reduce(np.dot, (mo_to_so.T, h1e_ao, mo_to_so))
-        self.h1e_so[::2,1::2] = 0.0
-        self.h1e_so[1::2,::2] = 0.0
+        self.h1e_a = reduce(np.dot, (self.mo_a.T, h1e_ao, self.mo_a))
+        self.h1e_b = reduce(np.dot, (self.mo_b.T, h1e_ao, self.mo_b))
 
-        self.v2e_so = pyscf.ao2mo.general(mf._eri, (mo_to_so, mo_to_so, mo_to_so, mo_to_so), compact=False)
-        self.v2e_so = self.v2e_so.reshape(self.nmo_so, self.nmo_so, self.nmo_so, self.nmo_so)
-        self.v2e_so = self.zero_spin_cases(self.v2e_so)
-        self.v2e_so -= self.v2e_so.transpose(3,1,2,0)
-        self.v2e_so = np.ascontiguousarray(self.v2e_so.transpose(3,0,2,1))
+        self.v2e = lambda:None
 
-    def zero_spin_cases(self, v2e):
-    
-        v2e[::2,1::2] = v2e[1::2,::2] = v2e[:,:,::2,1::2] = v2e[:,:,1::2,::2] = 0.0
-        
-        return v2e
+        occ_a = self.mo_a[:,:self.nocc_a].copy()
+        occ_b = self.mo_b[:,:self.nocc_b].copy()
+        vir_a = self.mo_a[:,self.nocc_a:].copy()
+        vir_b = self.mo_a[:,self.nocc_b:].copy()
+
+        v2e_vvvv_a = pyscf.ao2mo.general(mf._eri, (vir_a, vir_a, vir_a, vir_a), compact=False)
+        v2e_vvvv_a = v2e_vvvv_a.transpose(0,2,1,3).copy()
+        v2e_vvvv_a -= v2e_vvvv_a.transpose(0,1,3,2)
+
+        v2e_vvvv_ab = pyscf.ao2mo.general(mf._eri, (vir_a, vir_a, vir_b, vir_b), compact=False)
+        v2e_vvvv_ab = v2e_vvvv_ab.transpose(0,2,1,3).copy()
+        v2e_vvvv_b = pyscf.ao2mo.general(mf._eri, (vir_b, vir_b, vir_b, vir_b), compact=False)
+        v2e_vvvv_b = v2e_vvvv_b.transpose(0,2,1,3).copy()
+        v2e_vvvv_b -= v2e_vvvv_b.transpose(0,1,3,2)
+
+        self.v2e.vvvv = (v2e_vvvv_a, v2e_vvvv_ab, v2e_vvvv_b)
+        print(v2e_vvvv_a.flags)
+        print(v2e_vvvv_ab.flags)
+        print(v2e_vvvv_b.flags)
+        exit()
+
 
     def kernel(self):
 
