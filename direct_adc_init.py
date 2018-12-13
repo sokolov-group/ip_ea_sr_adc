@@ -2,7 +2,7 @@ import sys
 import numpy as np
 from functools import reduce
 import pyscf.ao2mo
-import direct_adc.direct_adc_compute as direct_adc_compute
+import direct_adc_spin_integrated.direct_adc_compute as direct_adc_compute
 
 
 class DirectADC:
@@ -42,29 +42,74 @@ class DirectADC:
 
         self.v2e = lambda:None
 
+
+#        print(v2e_vvvv_a.flags)
+#        print(v2e_vvvv_ab.flags)
+#        print(v2e_vvvv_b.flags)
+       
+
         occ_a = self.mo_a[:,:self.nocc_a].copy()
         occ_b = self.mo_b[:,:self.nocc_b].copy()
         vir_a = self.mo_a[:,self.nocc_a:].copy()
         vir_b = self.mo_a[:,self.nocc_b:].copy()
 
-        v2e_vvvv_a = pyscf.ao2mo.general(mf._eri, (vir_a, vir_a, vir_a, vir_a), compact=False)
-        v2e_vvvv_a = v2e_vvvv_a.transpose(0,2,1,3).copy()
-        v2e_vvvv_a -= v2e_vvvv_a.transpose(0,1,3,2)
 
-        v2e_vvvv_ab = pyscf.ao2mo.general(mf._eri, (vir_a, vir_a, vir_b, vir_b), compact=False)
-        v2e_vvvv_ab = v2e_vvvv_ab.transpose(0,2,1,3).copy()
-        v2e_vvvv_b = pyscf.ao2mo.general(mf._eri, (vir_b, vir_b, vir_b, vir_b), compact=False)
-        v2e_vvvv_b = v2e_vvvv_b.transpose(0,2,1,3).copy()
-        v2e_vvvv_b -= v2e_vvvv_b.transpose(0,1,3,2)
+        occ = occ_a, occ_b
+        vir = vir_a, vir_b
 
-        self.v2e.vvvv = (v2e_vvvv_a, v2e_vvvv_ab, v2e_vvvv_b)
-        print(v2e_vvvv_a.flags)
-        print(v2e_vvvv_ab.flags)
-        print(v2e_vvvv_b.flags)
+        
+        self.v2e.vvvv = transform_antisymmetrize_integrals(mf, (vir,vir,vir,vir))
+        self.v2e.ovov = transform_antisymmetrize_integrals(mf, (occ,vir,occ,vir))
+        self.v2e.oovv = transform_antisymmetrize_integrals(mf, (occ,occ,vir,vir))
+        print (self.v2e.oovv[0].shape)
         exit()
-
+    
 
     def kernel(self):
 
         direct_adc_compute.kernel(self)
+
+
+def transform_antisymmetrize_integrals(mf,mo):
+
+    mo_1, mo_2, mo_3, mo_4 = mo
+
+    mo_1_a, mo_1_b = mo_1
+    mo_2_a, mo_2_b = mo_2
+    mo_3_a, mo_3_b = mo_3
+    mo_4_a, mo_4_b = mo_4
+
+    v2e_a = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_3_a, mo_2_a, mo_4_a), compact=False)
+    v2e_a = v2e_a.reshape(mo_1_a.shape[1], mo_3_a.shape[1], mo_2_a.shape[1], mo_4_a.shape[1])
+    v2e_a = v2e_a.transpose(0,2,1,3).copy()
+
+    if (mo_1_a is mo_2_a):
+        v2e_a -= v2e_a.transpose(1,0,2,3)
+    elif (mo_3_a is mo_4_a):
+        v2e_a -= v2e_a.transpose(0,1,3,2)
+    else:
+        v2e_temp = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_4_a, mo_2_a, mo_3_a), compact=False)
+        v2e_temp = v2e_temp.reshape(mo_1_a.shape[1], mo_4_a.shape[1], mo_2_a.shape[1], mo_3_a.shape[1])
+        v2e_a -= v2e_temp.transpose(0,2,3,1).copy()
+
+
+    v2e_b = pyscf.ao2mo.general(mf._eri, (mo_1_b, mo_3_b, mo_2_b, mo_4_b), compact=False)
+    v2e_b = v2e_b.reshape(mo_1_b.shape[1], mo_3_b.shape[1], mo_2_b.shape[1], mo_4_b.shape[1])
+    v2e_b = v2e_b.transpose(0,2,1,3).copy()
+
+    if (mo_1_b is mo_2_b):
+        v2e_b -= v2e_b.transpose(1,0,2,3)
+    elif (mo_3_b is mo_4_b):
+        v2e_b -= v2e_b.transpose(0,1,3,2)
+    else:
+        v2e_temp = pyscf.ao2mo.general(mf._eri, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
+        v2e_temp = v2e_temp.reshape(mo_1_b.shape[1], mo_4_b.shape[1], mo_2_b.shape[1], mo_3_b.shape[1])
+        v2e_b -= v2e_temp.transpose(0,2,3,1).copy()
+
+    v2e_ab = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_3_a, mo_2_b, mo_4_b), compact=False)
+    v2e_ab = v2e_a.reshape(mo_1_a.shape[1], mo_3_a.shape[1], mo_2_b.shape[1], mo_4_b.shape[1])
+    v2e_ab = v2e_a.transpose(0,2,1,3).copy()
+
+    return (v2e_a, v2e_ab, v2e_b)
+
 
