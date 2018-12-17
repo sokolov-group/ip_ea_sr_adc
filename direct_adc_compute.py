@@ -12,9 +12,13 @@ def kernel(direct_adc):
 
     print ("\nStarting spin-orbital direct ADC code..\n")
     print ("Number of electrons:         ", direct_adc.nelec)
-    print ("Number of basis functions:   ", direct_adc.nmo_so)
-    print ("Number of occupied orbitals: ", direct_adc.nocc_so)
-    print ("Number of virtual orbitals:  ", direct_adc.nvir_so)
+    print ("Number of alpha electrons:         ", direct_adc.nelec_a)
+    print ("Number of beta electrons:         ", direct_adc.nelec_b)
+    print ("Number of basis functions:   ", direct_adc.nmo)
+    print ("Number of alpha occupied orbitals: ", direct_adc.nocc_a)
+    print ("Number of beta occupied orbitals: ", direct_adc.nocc_b)
+    print ("Number of alpha virtual orbitals:  ", direct_adc.nvir_a)
+    print ("Number of beta virtual orbitals:  ", direct_adc.nvir_b)
     print ("Nuclear repulsion energy:    ", direct_adc.enuc,"\n")
     
 
@@ -25,7 +29,8 @@ def kernel(direct_adc):
     print ("Tolerance:                   ", direct_adc.tol)
     print ("Maximum number of iterations:", direct_adc.maxiter, "\n")
     
-    print ("SCF orbital energies:\n", direct_adc.mo_energy_so, "\n")
+    print ("SCF orbital energies(alpha):\n", direct_adc.mo_energy_a, "\n")
+    print ("SCF orbital energies(beta):\n", direct_adc.mo_energy_b, "\n")
 
     t_start = time.time()
 
@@ -58,78 +63,186 @@ def compute_amplitudes(direct_adc):
 
     t2_1, t2_2, t1_2, t1_3 = (None,) * 4
 
-    nocc_so = direct_adc.nocc_so
-    nvir_so = direct_adc.nvir_so
+    nocc_a = direct_adc.nocc_a
+    nocc_b = direct_adc.nocc_b
+    nvir_a = direct_adc.nvir_a
+    nvir_b = direct_adc.nvir_b
 
-    v2e_so_oovv = direct_adc.v2e_so[:nocc_so,:nocc_so,nocc_so:,nocc_so:]
-    v2e_so_vvvv = direct_adc.v2e_so[nocc_so:,nocc_so:,nocc_so:,nocc_so:]
-    v2e_so_oooo = direct_adc.v2e_so[:nocc_so,:nocc_so,:nocc_so,:nocc_so]
-    v2e_so_voov = direct_adc.v2e_so[nocc_so:,:nocc_so,:nocc_so,nocc_so:]
-    v2e_so_ooov = direct_adc.v2e_so[:nocc_so,:nocc_so,:nocc_so,nocc_so:]
-    v2e_so_vovv = direct_adc.v2e_so[nocc_so:,:nocc_so,nocc_so:,nocc_so:]
-    v2e_so_vvoo = direct_adc.v2e_so[nocc_so:,nocc_so:,:nocc_so,:nocc_so]
+    v2e_oovv_a,v2e_oovv_ab,v2e_oovv_b  = direct_adc.v2e.oovv
+    v2e_vvvv_a,v2e_vvvv_ab,v2e_vvvv_b  = direct_adc.v2e.vvvv
+    v2e_oooo_a,v2e_oooo_ab,v2e_oooo_b  = direct_adc.v2e.oooo
+    v2e_voov_a,v2e_voov_ab,v2e_voov_b  = direct_adc.v2e.voov
+    v2e_ooov_a,v2e_ooov_ab,v2e_ooov_b  = direct_adc.v2e.ooov
+    v2e_vovv_a,v2e_vovv_ab,v2e_vovv_b  = direct_adc.v2e.vovv
+    v2e_vvoo_a,v2e_vvoo_ab,v2e_vvoo_b  = direct_adc.v2e.vvoo
+    v2e_oovo_a,v2e_oovo_ab,v2e_oovo_b  = direct_adc.v2e.oovo
+    v2e_ovov_a,v2e_ovov_ab,v2e_ovov_b  = direct_adc.v2e.ovov
+    v2e_vovo_a,v2e_vovo_ab,v2e_vovo_b  = direct_adc.v2e.vovo
     
-    e_so = direct_adc.mo_energy_so
+    e_a = direct_adc.mo_energy_a
+    e_b = direct_adc.mo_energy_b
 
-    d_ij = e_so[:nocc_so][:,None] + e_so[:nocc_so]
-    d_ab = e_so[nocc_so:][:,None] + e_so[nocc_so:]
+    d_ij_a = e_a[:nocc_a][:,None] + e_a[:nocc_a]
+    d_ij_b = e_b[:nocc_b][:,None] + e_b[:nocc_b]
+    d_ij_ab = e_a[:nocc_a][:,None] + e_b[:nocc_b]
     
-    D2 = d_ij.reshape(-1,1) - d_ab.reshape(-1)
-    D2 = D2.reshape((nocc_so,nocc_so,nvir_so,nvir_so))
+
+
+    d_ab_a = e_a[nocc_a:][:,None] + e_a[nocc_a:]
+    d_ab_b = e_b[nocc_b:][:,None] + e_b[nocc_b:]
+    d_ab_ab = e_a[nocc_a:][:,None] + e_b[nocc_b:]
+    
+    D2_a = d_ij_a.reshape(-1,1) - d_ab_a.reshape(-1)
+    D2_b = d_ij_b.reshape(-1,1) - d_ab_b.reshape(-1)
+    D2_ab = d_ij_ab.reshape(-1,1) - d_ab_ab.reshape(-1)
+    
+    D2_a = D2_a.reshape((nocc_a,nocc_a,nvir_a,nvir_a))
+    D2_b = D2_b.reshape((nocc_b,nocc_b,nvir_b,nvir_b))
+    D2_ab = D2_ab.reshape((nocc_a,nocc_b,nvir_a,nvir_b))
 
         
-    D1 = e_so[:nocc_so][:None].reshape(-1,1) - e_so[nocc_so:].reshape(-1)
-    D1 = D1.reshape((nocc_so,nvir_so))
+    D1_a = e_a[:nocc_a][:None].reshape(-1,1) - e_a[nocc_a:].reshape(-1)
+    D1_b = e_b[:nocc_b][:None].reshape(-1,1) - e_b[nocc_b:].reshape(-1)
+    D1_a = D1_a.reshape((nocc_a,nvir_a))
+    D1_b = D1_b.reshape((nocc_b,nvir_b))
     
     
-    
+    t2_1_a = v2e_oovv_a/D2_a
+    t2_1_b = v2e_oovv_b/D2_b
+    t2_1_ab = v2e_oovv_ab/D2_ab
 
-    t2_1 = v2e_so_oovv/D2
+
+    t2_1 = (t2_1_a , t2_1_ab, t2_1_b)    
 
     
-    t1_2 = 0.5*np.einsum('akcd,ikcd->ia',v2e_so_vovv,t2_1)
-    t1_2 -= 0.5*np.einsum('klic,klac->ia',v2e_so_ooov,t2_1)
-    t1_2 = t1_2/D1
+    t1_2_a = 0.5*np.einsum('akcd,ikcd->ia',v2e_vovv_a,t2_1_a)
+    t1_2_a -= 0.5*np.einsum('klic,klac->ia',v2e_ooov_a,t2_1_a)
+    
+    t1_2_a += np.einsum('akcd,ikcd->ia',v2e_vovv_ab,t2_1_ab)
+    t1_2_a -= np.einsum('klic,klac->ia',v2e_ooov_ab,t2_1_ab)
+    
+    
+    
+    t1_2_b = 0.5*np.einsum('akcd,ikcd->ia',v2e_vovv_b,t2_1_b)
+    t1_2_b -= 0.5*np.einsum('klic,klac->ia',v2e_ooov_b,t2_1_b)
+    
+    t1_2_b += np.einsum('akcd,ikcd->ia',v2e_vovv_ab,t2_1_ab)
+    t1_2_b -= np.einsum('klic,klac->ia',v2e_ooov_ab,t2_1_ab)
+    
+    t1_2_a = t1_2_a/D1_a
+    t1_2_b = t1_2_b/D1_b
+
+
+    t1_2 = (t1_2_a , t1_2_b)
+
+
+    if (direct_adc.method == "adc(2)-e" or direct_adc.method == "adc(3)"):
+
+        #print("Calculating additional amplitudes for adc(2)-e and adc(3)")
+
+
+        t2_2_a = 0.5*np.einsum('abcd,ijcd->ijab',v2e_vvvv_a,t2_1_a)
+        t2_2_a += 0.5*np.einsum('klij,klab->ijab',v2e_oooo_a,t2_1_a)
+        
+
+        temp = np.einsum('bkjc,kica->ijab',v2e_voov_a,t2_1_a) 
+        temp_1 = np.einsum('bkjc,kica->ijab',v2e_voov_ab,t2_1_ab) 
+        
+        t2_2_a += temp - temp.transpose(1,0,2,3) - temp.transpose(0,1,3,2) + temp.transpose(1,0,3,2)
+        t2_2_a += temp_1 - temp_1.transpose(1,0,2,3) - temp_1.transpose(0,1,3,2) + temp_1.transpose(1,0,3,2)
+        
+    
+        t2_2_b = 0.5*np.einsum('abcd,ijcd->ijab',v2e_vvvv_b,t2_1_b)
+        t2_2_b += 0.5*np.einsum('klij,klab->ijab',v2e_oooo_b,t2_1_b)
+        
+
+        temp = np.einsum('bkjc,kica->ijab',v2e_voov_b,t2_1_b) 
+        temp_1 = np.einsum('bkjc,kica->ijab',v2e_voov_ab,t2_1_ab) 
+        
+        t2_2_b += temp - temp.transpose(1,0,2,3) - temp.transpose(0,1,3,2) + temp.transpose(1,0,3,2)
+        t2_2_b += temp_1 - temp_1.transpose(1,0,2,3) - temp_1.transpose(0,1,3,2) + temp_1.transpose(1,0,3,2)
    
 
-    if (direct_adc.method == "adc(2)-e"):
-
-        #print("Calculating additional amplitudes for adc(2)-e")
-
-        t2_2 = 0.5*np.einsum('abcd,ijcd->ijab',v2e_so_vvvv,t2_1)
-        t2_2 += 0.5*np.einsum('klij,klab->ijab',v2e_so_oooo,t2_1)
-        temp = np.einsum('bkjc,kica->ijab',v2e_so_voov,t2_1) 
-        t2_2 += temp - temp.transpose(1,0,2,3) - temp.transpose(0,1,3,2) + temp.transpose(1,0,3,2)
+        t2_2_ab = np.einsum('abcd,ijcd->ijab',v2e_vvvv_ab,t2_1_ab)
+        t2_2_ab += np.einsum('klij,klab->ijab',v2e_oooo_ab,t2_1_ab)
         
-        t2_2 = t2_2/D2
-    
 
+        t2_2_ab += np.einsum('bkjc,kica->ijab',v2e_voov_ab,t2_1_a) 
+        t2_2_ab += np.einsum('bkjc,kica->ijab',v2e_voov_b,t2_1_ab) 
+        
+        t2_2_ab -= np.einsum('kbic,kjac->ijab',v2e_ovov_ab,t2_1_ab) 
+        
+        t2_2_ab -= np.einsum('akcj,ikcb->ijab',v2e_vovo_ab,t2_1_ab) 
+
+        t2_2_ab += np.einsum('akic,kjcb->ijab',v2e_voov_ab,t2_1_b)
+        t2_2_ab += np.einsum('akic,kjcb->ijab',v2e_voov_a,t2_1_ab)
+
+        
+        t2_2_a = t2_2_a/D2_a
+        t2_2_b = t2_2_b/D2_b
+        t2_2_ab = t2_2_ab/D2_ab
+        
+
+        t2_2 = (t2_2_a , t2_2_ab, t2_2_b)    
 
     if (direct_adc.method == "adc(3)"):
          
         #print("Calculating additional amplitudes for adc(3)")
         
 
-        t2_2 = 0.5*np.einsum('abcd,ijcd->ijab',v2e_so_vvvv,t2_1)
-        t2_2 += 0.5*np.einsum('klij,klab->ijab',v2e_so_oooo,t2_1)
-        temp = np.einsum('bkjc,kica->ijab',v2e_so_voov,t2_1) 
-        t2_2 += temp - temp.transpose(1,0,2,3) - temp.transpose(0,1,3,2) + temp.transpose(1,0,3,2)
+        t1_3_a = np.einsum('d,ilad,ld->ia',e_a[nocc_a:],t2_2_a,t1_2_a)
+        t1_3_a += np.einsum('d,ilad,ld->ia',e_b[nocc_b:],t2_2_ab,t1_2_b)
         
-        t2_2 = t2_2/D2
+        t1_3_a -= np.einsum('l,ilad,ld->ia',e_a[:nocc_a],t2_2_a,t1_2_a)
+        t1_3_a -= np.einsum('l,ilad,ld->ia',e_b[:nocc_b],t2_2_ab,t1_2_b)
+        
+        t1_3_a += 0.5*np.einsum('a,ilad,ld->ia',e_a[nocc_a:],t2_2_a,t1_2_a)
+        t1_3_a += 0.5*np.einsum('a,ilad,ld->ia',e_a[nocc_a:],t2_2_ab,t1_2_b)
+        
+        t1_3_a -= 0.5*np.einsum('i,ilad,ld->ia',e_a[:nocc_a],t2_2_a,t1_2_a)
+        t1_3_a -= 0.5*np.einsum('i,ilad,ld->ia',e_a[:nocc_a],t2_2_ab,t1_2_b)
+        
+        t1_3_a += np.einsum('ld,adil->ia',t1_2_a,v2e_vvoo_a)
+        t1_3_a += np.einsum('ld,adil->ia',t1_2_b,v2e_vvoo_ab)
+        
+        t1_3_a += np.einsum('ld,alid->ia',t1_2_a,v2e_voov_a)
+        t1_3_a += np.einsum('ld,alid->ia',t1_2_b,v2e_voov_ab)
 
+        t1_3_a -= 0.5*np.einsum('lmad,lmid->ia',t2_2_a,v2e_ooov_a)
+        t1_3_a -= np.einsum('lmad,lmid->ia',t2_2_ab,v2e_ooov_ab)
+        
+        t1_3_a += 0.5*np.einsum('ilde,alde->ia',t2_2_a,v2e_vovv_a)
+        t1_3_a += np.einsum('ilde,alde->ia',t2_2_ab,v2e_vovv_ab)
+        
+        t1_3_b = np.einsum('d,ilad,ld->ia',e_b[nocc_b:],t2_2_b,t1_2_b)
+        t1_3_b += np.einsum('d,ilad,ld->ia',e_a[nocc_a:],t2_2_ab,t1_2_a)
+        
+        t1_3_b -= np.einsum('l,ilad,ld->ia',e_b[:nocc_b],t2_2_b,t1_2_b)
+        t1_3_b -= np.einsum('l,ilad,ld->ia',e_a[:nocc_a],t2_2_ab,t1_2_a)
+        
+        t1_3_b += 0.5*np.einsum('a,ilad,ld->ia',e_b[nocc_b:],t2_2_b,t1_2_b)
+        t1_3_b += 0.5*np.einsum('a,ilad,ld->ia',e_b[nocc_b:],t2_2_ab,t1_2_a)
+        
+        t1_3_b -= 0.5*np.einsum('i,ilad,ld->ia',e_b[:nocc_b],t2_2_b,t1_2_b)
+        t1_3_b -= 0.5*np.einsum('i,ilad,ld->ia',e_b[:nocc_b],t2_2_ab,t1_2_a)
+        
+        t1_3_b += np.einsum('ld,adil->ia',t1_2_b,v2e_vvoo_b)
+        t1_3_b += np.einsum('ld,adil->ia',t1_2_a,v2e_vvoo_ab)
+        
+        t1_3_b += np.einsum('ld,alid->ia',t1_2_b,v2e_voov_b)
+        t1_3_b += np.einsum('ld,alid->ia',t1_2_a,v2e_voov_ab)
 
-
-        t1_3 = np.einsum('d,ilad,ld->ia',e_so[nocc_so:],t2_2,t1_2)
-        t1_3 -= np.einsum('l,ilad,ld->ia',e_so[:nocc_so],t2_2,t1_2)
-        t1_3 += 0.5*np.einsum('a,ilad,ld->ia',e_so[nocc_so:],t2_2,t1_2)
-        t1_3 -= 0.5*np.einsum('i,ilad,ld->ia',e_so[:nocc_so],t2_2,t1_2)
-        t1_3 += np.einsum('ld,adil->ia',t1_2,v2e_so_vvoo)
-        t1_3 += np.einsum('ld,alid->ia',t1_2,v2e_so_voov)
-        t1_3 -= 0.5*np.einsum('lmad,lmid->ia',t2_2,v2e_so_ooov)
-        t1_3 += 0.5*np.einsum('ilde,alde->ia',t2_2,v2e_so_vovv)
-
-
-        t1_3 = t1_3/D1
+        t1_3_b -= 0.5*np.einsum('lmad,lmid->ia',t2_2_b,v2e_ooov_b)
+        t1_3_b -= np.einsum('lmad,lmid->ia',t2_2_ab,v2e_ooov_ab)
+        
+        t1_3_b += 0.5*np.einsum('ilde,alde->ia',t2_2_b,v2e_vovv_b)
+        t1_3_b += np.einsum('ilde,alde->ia',t2_2_ab,v2e_vovv_ab)
+        
+        t1_3_a = t1_3_a/D1_a
+        t1_3_b = t1_3_b/D1_b
+    
+    
+        t1_3 = (t1_3_a , t1_3_b)    
 
 
     t_amp = (t2_1, t2_2, t1_2, t1_3)

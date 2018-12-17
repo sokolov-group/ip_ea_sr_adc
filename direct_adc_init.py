@@ -39,6 +39,8 @@ class DirectADC:
         h1e_ao = mf.get_hcore()
         self.h1e_a = reduce(np.dot, (self.mo_a.T, h1e_ao, self.mo_a))
         self.h1e_b = reduce(np.dot, (self.mo_b.T, h1e_ao, self.mo_b))
+        
+
 
         self.v2e = lambda:None
 
@@ -58,11 +60,22 @@ class DirectADC:
         vir = vir_a, vir_b
 
         
-        self.v2e.vvvv = transform_antisymmetrize_integrals(mf, (vir,vir,vir,vir))
-        self.v2e.ovov = transform_antisymmetrize_integrals(mf, (occ,vir,occ,vir))
         self.v2e.oovv = transform_antisymmetrize_integrals(mf, (occ,occ,vir,vir))
-        print (self.v2e.oovv[0].shape)
-        exit()
+        self.v2e.vvvv = transform_antisymmetrize_integrals(mf, (vir,vir,vir,vir))
+        self.v2e.oooo = transform_antisymmetrize_integrals(mf, (occ,occ,occ,occ))
+        self.v2e.voov = transform_antisymmetrize_integrals(mf, (vir,occ,occ,vir))
+        self.v2e.ooov = transform_antisymmetrize_integrals(mf, (occ,occ,occ,vir))
+        self.v2e.vovv = transform_antisymmetrize_integrals(mf, (vir,occ,vir,vir))
+        self.v2e.vvoo = transform_antisymmetrize_integrals(mf, (vir,vir,occ,occ))
+        self.v2e.vvvo = transform_antisymmetrize_integrals(mf, (vir,vir,vir,occ))
+        self.v2e.ovoo = transform_antisymmetrize_integrals(mf, (occ,vir,occ,occ))
+        self.v2e.ovov = transform_antisymmetrize_integrals(mf, (occ,vir,occ,vir))
+        self.v2e.vooo = transform_antisymmetrize_integrals(mf, (vir,occ,occ,occ))
+        self.v2e.oovo = transform_antisymmetrize_integrals(mf, (occ,occ,vir,occ))
+        self.v2e.vovo = transform_antisymmetrize_integrals(mf, (vir,occ,vir,occ))
+        
+        #print (np.linalg.norm(self.v2e.oovv[0]))
+        #exit()
     
 
     def kernel(self):
@@ -107,8 +120,8 @@ def transform_antisymmetrize_integrals(mf,mo):
         v2e_b -= v2e_temp.transpose(0,2,3,1).copy()
 
     v2e_ab = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_3_a, mo_2_b, mo_4_b), compact=False)
-    v2e_ab = v2e_a.reshape(mo_1_a.shape[1], mo_3_a.shape[1], mo_2_b.shape[1], mo_4_b.shape[1])
-    v2e_ab = v2e_a.transpose(0,2,1,3).copy()
+    v2e_ab = v2e_ab.reshape(mo_1_a.shape[1], mo_3_a.shape[1], mo_2_b.shape[1], mo_4_b.shape[1])
+    v2e_ab = v2e_ab.transpose(0,2,1,3).copy()
 
     return (v2e_a, v2e_ab, v2e_b)
 
