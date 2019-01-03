@@ -33,7 +33,7 @@ class DirectADC:
         self.broadening = 0.01
         self.tol = 1e-6
         self.maxiter = 200
-        self.method = "adc(2)"
+        self.method = "adc(3)"
 
         # Integral transformation
         h1e_ao = mf.get_hcore()
@@ -73,6 +73,7 @@ class DirectADC:
         self.v2e.vooo = transform_antisymmetrize_integrals(mf, (vir,occ,occ,occ))
         self.v2e.oovo = transform_antisymmetrize_integrals(mf, (occ,occ,vir,occ))
         self.v2e.vovo = transform_antisymmetrize_integrals(mf, (vir,occ,vir,occ))
+        self.v2e.vvov = transform_antisymmetrize_integrals(mf, (vir,vir,occ,vir))
         
         #print (np.linalg.norm(self.v2e.oovv[0]))
         #exit()
