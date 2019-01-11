@@ -50,6 +50,8 @@ def kernel(direct_adc):
     # Compute Green's functions directly
     dos = calc_density_of_states(direct_adc, apply_H, t_amp)
 
+    np.savetxt('density_of_states.txt', dos, fmt='%.7f')
+
     #print ("Computation successfully finished")
     #print ("Total time:", (time.time() - t_start, "sec"))
 
@@ -383,12 +385,16 @@ def calc_density_of_states(direct_adc,apply_H,t_amp):
 
 
 	k = np.zeros((nmo,nmo))
-	gf = np.array(k,dtype = complex)
-	gf.imag = k
+	gf_a = np.array(k,dtype = complex)
+	gf_a.imag = k
 
-	gf_trace= []
+	gf_b = np.array(k,dtype = complex)
+	gf_b.imag = k
+	
+	gf_a_trace= []
+	gf_b_trace= []
 	gf_im_trace = [] 
-
+	
 	for freq in freq_range:
        
 		omega = freq
@@ -398,18 +404,17 @@ def calc_density_of_states(direct_adc,apply_H,t_amp):
 		for orb in range(nmo):
 
 			T_a = calculate_T(direct_adc, t_amp, orb, spin = "alpha")
-			print (np.linalg.norm(T_a))
-			print (T_a.shape) 
-			exit()
 			gf_a[orb,orb] = calculate_GF(direct_adc,apply_H,omega,orb,T_a)
 			
-                        #T_b = calculate_T(direct_adc, t_amp, orb, spin = "beta")
-			#gf_b[orb,orb] = calculate_GF(direct_adc,apply_H,omega,orb,T_b)
+			T_b = calculate_T(direct_adc, t_amp, orb, spin = "beta")
+			gf_b[orb,orb] = calculate_GF(direct_adc,apply_H,omega,orb,T_b)
 
-		gf_trace = -(1/(np.pi))*np.trace(gf.imag)
+		gf_a_trace = -(1/(np.pi))*np.trace(gf_a.imag)
+		gf_b_trace = -(1/(np.pi))*np.trace(gf_b.imag)
+		gf_trace = np.sum([gf_a_trace,gf_b_trace])
 		gf_im_trace.append(gf_trace)
         
-
+	
 	return gf_im_trace         
 
 
@@ -486,7 +491,7 @@ def calculate_T(direct_adc, t_amp, orb, spin=None):
         
         else :    
 
-            T[s_a:f_a] += t1_2_a[:,orb]
+            T[s_a:f_a] += t1_2_a[:,(orb-nocc_a)]
         
 
             #ADC(2) 2h-1p part
@@ -496,13 +501,13 @@ def calculate_T(direct_adc, t_amp, orb, spin=None):
             
             t2_1_t_ab = -t2_1_ab.transpose(3,2,0,1)           
 
-            T[s_aaa:f_aaa] = t2_1_t_a[(orb-nocc_a),:,:,:].reshape(-1)
+            T[s_aaa:f_aaa] = t2_1_t_a[(orb-nocc_a),:,:].reshape(-1)
             T[s_bab:f_bab] = t2_1_t_ab[(orb-nocc_a),:,:,:].reshape(-1)
             
 
 
         
-    elif spin=="beta":
+    if spin=="beta":
    
         if orb < nocc_b:
             
@@ -510,10 +515,10 @@ def calculate_T(direct_adc, t_amp, orb, spin=None):
             T[s_b:f_b]+= 0.25*np.einsum('kdc,ikdc->i',t2_1_b[:,orb,:,:], t2_1_b, optimize = True)
             T[s_b:f_b]-= 0.25*np.einsum('kdc,ikdc->i',t2_1_ab[orb,:,:,:], t2_1_ab, optimize = True)
             T[s_b:f_b]-= 0.25*np.einsum('kcd,ikcd->i',t2_1_ab[orb,:,:,:], t2_1_ab, optimize = True)
-        
+       
         else :    
 
-            T[s_b:f_b] += t1_2_b[:,orb]
+            T[s_b:f_b] += t1_2_b[:,(orb-nocc_b)]
         
 
             #ADC(2) 2h-1p part
@@ -523,9 +528,9 @@ def calculate_T(direct_adc, t_amp, orb, spin=None):
             t2_1_t = t2_1_b[ij_ind_b[0],ij_ind_b[1],:,:].copy()
             t2_1_t_b = t2_1_t.transpose(2,1,0)           
 
-            t2_1_t_ab = t2_1_ab.transpose(3,2,0,1)           
+            t2_1_t_ab = -t2_1_ab.transpose(3,2,0,1)           
 
-            T[s_bbb:f_bbb] = t2_1_t_b[(orb-nocc_b),:,:,:].reshape(-1)
+            T[s_bbb:f_bbb] = t2_1_t_b[(orb-nocc_b),:,:].reshape(-1)
             T[s_aba:f_aba] = t2_1_t_ab[(orb-nocc_b),:,:,:].reshape(-1)
 
 
@@ -918,19 +923,40 @@ def define_H(direct_adc,t_amp):
     v2e_oooo_a,v2e_oooo_ab,v2e_oooo_b = direct_adc.v2e.oooo
     v2e_vvvo_a,v2e_vvvo_ab,v2e_vvvo_b = direct_adc.v2e.vvvo
 
-    v2e_vooo_1_a = v2e_vooo_a.transpose(1,0,2,3).reshape(nocc_a, -1)
-    v2e_vooo_1_ab = v2e_vooo_ab.transpose(1,0,2,3).reshape(nocc_a, -1)
-#   v2e_vooo_1_ab = v2e_vooo_ab.transpose(1,0,2,3).reshape(nocc_so, -1)
-#    v2e_oovo_1 = v2e_so_oovo[ij_ind[0],ij_ind[1],:,:].transpose(1,0,2)
+    v2e_vooo_1_a = v2e_vooo_a[:,:,ij_ind_a[0],ij_ind_a[1]].transpose(1,0,2).reshape(nocc_a,-1)
+    v2e_vooo_1_b = v2e_vooo_a[:,:,ij_ind_b[0],ij_ind_b[1]].transpose(1,0,2).reshape(nocc_a,-1)
 
-#    v2e_vooo_1 = v2e_so_vooo[:,:,ij_ind[0],ij_ind[1]].transpose(1,0,2).reshape(nocc_so, -1)
-#    v2e_oovo_1 = v2e_so_oovo[ij_ind[0],ij_ind[1],:,:].transpose(1,0,2)
+    v2e_vooo_1_ab_a = -v2e_vooo_ab.transpose(1,0,2,3).reshape(nocc_a, -1)
+    v2e_vooo_1_ab_b = -v2e_vooo_ab.transpose(1,0,2,3).reshape(nocc_b, -1)
+
+    v2e_oovo_1_a = v2e_oovo_a[ij_ind_a[0],ij_ind_a[1],:,:].transpose(1,0,2)
+    v2e_oovo_1_b = v2e_oovo_b[ij_ind_b[0],ij_ind_b[1],:,:].transpose(1,0,2)
+    v2e_oovo_1_ab = -v2e_oovo_ab.transpose(2,0,1,3)
+
     
-#    d_ij = e_occ_so[:,None] + e_occ_so
-#    d_a = e_vir_so[:,None]
-#    D_n = -d_a + d_ij.reshape(-1)
-#    D_n = D_n.reshape((nvir_so,nocc_so,nocc_so))
-#    D_aij = D_n.copy()[:,ij_ind[0],ij_ind[1]].reshape(-1)
+    d_ij_a = e_occ_a[:,None] + e_occ_a
+    d_a_a = e_vir_a[:,None]
+    D_n_a = -d_a_a + d_ij_a.reshape(-1)
+    D_n_a = D_n_a.reshape((nvir_a,nocc_a,nocc_a))
+    D_aij_a = D_n_a.copy()[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1)
+
+
+    d_ij_b = e_occ_b[:,None] + e_occ_b
+    d_a_b = e_vir_b[:,None]
+    D_n_b = -d_a_b + d_ij_b.reshape(-1)
+    D_n_b = D_n_a.reshape((nvir_b,nocc_b,nocc_b))
+    D_aij_b = D_n_b.copy()[:,ij_ind_b[0],ij_ind_b[1]].reshape(-1)
+    
+    d_ij_ab = e_occ_a[:,None] + e_occ_b
+    d_a_b = e_vir_b[:,None]
+    D_n_bab = -d_a_b + d_ij_ab.reshape(-1)
+    D_aij_bab = D_n_bab.reshape(-1)
+
+    
+    d_ij_ab = e_occ_b[:,None] + e_occ_a
+    d_a_a = e_vir_a[:,None]
+    D_n_aba = -d_a_a + d_ij_ab.reshape(-1)
+    D_aij_aba = D_n_aba.reshape(-1)
 
 
     s_a = 0
@@ -950,6 +976,10 @@ def define_H(direct_adc,t_amp):
     M_ij_a, M_ij_b = get_Mij(direct_adc,t_amp)
 
     def sigma_(r):
+
+        z = np.zeros((dim))
+        s = np.array(z,dtype = complex)
+        s.imag = z
         
         r_a = r[s_a:f_a]
         r_b = r[s_b:f_b]
@@ -960,29 +990,33 @@ def define_H(direct_adc,t_amp):
 
         # ADC(2) ij block
         
-        s1_a = np.einsum('ij,j->i',M_ij_a,r_a) 
-        s1_b = np.einsum('ij,j->i',M_ij_b,r_b) 
+        s[s_a:f_a] = np.einsum('ij,j->i',M_ij_a,r_a) 
+        s[s_b:f_b] = np.einsum('ij,j->i',M_ij_b,r_b) 
             
         # ADC(2) i - kja block
-        #s1 += np.einsum('jp,p->j', v2e_vooo_1, r2, optimize = True)
-        #s1_a = 0.5*np.einsum('ip,p->i', v2e_vooo_1_a, r_aaa, optimize = True)
-        #s1_a += np.einsum('ip,p->i', v2e_vooo_1_ab, r_bab, optimize = True)
+        
+        
+        s[s_a:f_a] += np.einsum('ip,p->i', v2e_vooo_1_a, r_aaa, optimize = True)
+        s[s_a:f_a] += np.einsum('ip,p->i', v2e_vooo_1_ab_a, r_bab, optimize = True)
 
 
-#        s1_a = 0.5*np.einsum('ip,p->i', v2e_vooo_1_a, r2_aaa, optimize = True)
-#        s1_a += np.einsum('ip,p->i', v2e_vooo_1_ab, r2_bab, optimize = True)
+        s[s_b:f_b] += np.einsum('ip,p->i', v2e_vooo_1_b, r_bbb, optimize = True)
+        s[s_b:f_b] += np.einsum('ip,p->i', v2e_vooo_1_ab_b, r_aba, optimize = True)
 
 
-#        s1_a += np.einsum('iajk,ajk->i', v2e_ovoo_a, r2_bab, optimize = True)
-#        
-#        s1_a += np.einsum('jp,p->j', v2e_vooo_1, r2, optimize = True)
-#
-#        # ADC(2) ajk - i block
-#        s2 = np.einsum('api,i->ap', v2e_oovo_1, r1, optimize = True).reshape(-1)
-#        
-#        # ADC(2) ajk - bil block
-#
-#        s2 += D_aij * r2
+        # ADC(2) ajk - i block
+
+        s[s_aaa:f_aaa] = np.einsum('api,i->ap', v2e_oovo_1_a, r_a, optimize = True).reshape(-1)
+        s[s_bab:f_bab] = np.einsum('ajki,i->ajk', v2e_oovo_1_ab, r_a, optimize = True).reshape(-1)
+        s[s_aba:f_aba] = np.einsum('ajki,i->ajk', v2e_oovo_1_ab, r_b, optimize = True).reshape(-1)
+        s[s_bbb:f_bbb] = np.einsum('api,i->ap', v2e_oovo_1_b, r_b, optimize = True).reshape(-1)
+        
+        # ADC(2) ajk - bil block
+
+        s[s_aaa:f_aaa] += D_aij_a * r_aaa
+        s[s_bab:f_bab] += D_aij_bab * r_bab
+        s[s_aba:f_aba] += D_aij_aba * r_aba
+        s[s_bbb:f_bbb] += D_aij_b * r_bbb
 
         if (method == "adc(2)-e" or method == "adc(3)"):
         	
@@ -1046,7 +1080,7 @@ def define_H(direct_adc,t_amp):
         
         
                 #s = np.concatenate((s1,s2))
-        return s1_a
+        return s
     return sigma_
 
 
@@ -1059,56 +1093,41 @@ def calculate_GF(direct_adc,apply_H,omega,orb,T):
     nocc_b = direct_adc.nocc_b
     nvir_a = direct_adc.nvir_a
     nvir_b = direct_adc.nvir_b
-    dim = nocc_a + nocc_b
-    singles = nocc_a
-    doubles =  nvir_a * nocc_a *nocc_a
-    dim = singles + doubles
 
     iomega = omega + broadening*1j
     
     imag_r = -(np.real(T))/broadening
     
-    #print (np.linalg.norm(imag_r))
-
-    r = np.zeros((doubles))
-    for i in range(doubles):
-        r[i] = 1
-
     
-    #sigma = apply_H(r)  
     sigma = apply_H(imag_r) 
 
-    #print (sigma_a)
-    #exit()
 
-    #sigma = apply_H(imag_r) 
+    real_r =  (-omega*imag_r  + np.real(sigma))/broadening
+
+
+    n_singles_a = nocc_a
+    n_singles_b = nocc_b
+    n_doubles_aaa = nocc_a * (nocc_a - 1) * nvir_a // 2
+    n_doubles_bab = nvir_b * nocc_a * nocc_b 
+    n_doubles_aba = nvir_a * nocc_b * nocc_a 
+    n_doubles_bbb = nocc_b * (nocc_b - 1) * nvir_b // 2
+
+    dim = n_singles_a + n_singles_b + n_doubles_aaa + n_doubles_bab + n_doubles_aba + n_doubles_bbb
+
+    z = np.zeros((dim))
+    new_r = np.array(z,dtype = complex)
+    new_r.imag = z
+
+    new_r.real = real_r.copy()
+    new_r.imag = imag_r.copy()
     
+
+    new_r = solve_conjugate_gradients(direct_adc,apply_H,T,new_r,omega,orb)
     
 
+    gf = np.dot(T,new_r)
 
-
-    #real_r =  (-omega*imag_r  + np.real(sigma))/broadening
-#    real_r = np.zeros_like(imag_r)
-#
-#    n_singles = nocc_so
-#    n_doubles = nocc_so * (nocc_so - 1) * nvir_so//2
-#
-#
-#    dim = n_singles + n_doubles
-#
-#
-#    z = np.zeros((dim))
-#    new_r = np.array(z,dtype = complex)
-#    new_r.imag = z
-#
-#    new_r.real = real_r.copy()
-#    new_r.imag = imag_r.copy()
-#
-#    new_r = solve_conjugate_gradients(direct_adc,apply_H,T,new_r,omega)
-#
-#    gf = np.dot(T,new_r)
-#
-#    return gf
+    return gf
 
 
 
@@ -1118,13 +1137,17 @@ def solve_conjugate_gradients(direct_adc,apply_H,T,r,omega,orb):
     maxiter = direct_adc.maxiter
 
     iomega = omega + direct_adc.broadening*1j
+     
     
     # Compute residual
     
     omega_H = iomega*r - apply_H(r)
     res = T - omega_H
+    
+     
 
     rms = np.linalg.norm(res)/np.sqrt(res.size)
+    
 
     if rms < 1e-8:
         return r
