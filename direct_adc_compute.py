@@ -395,28 +395,48 @@ def calc_density_of_states(direct_adc,apply_H,t_amp):
 	gf_b_trace= []
 	gf_im_trace = [] 
 	
-	for freq in freq_range:
-       
-		omega = freq
-		iomega = freq + broadening*1j
-
-
-		for orb in range(nmo):
-
-			#T_a = calculate_T(direct_adc, t_amp, orb, spin = "alpha")
-			#gf_a[orb,orb] = calculate_GF(direct_adc,apply_H,omega,orb,T_a)
-			
-			T_b = calculate_T(direct_adc, t_amp, orb, spin = "beta")
-			gf_b[orb,orb] = calculate_GF(direct_adc,apply_H,omega,orb,T_b)
-
-		#gf_a_trace = -(1/(np.pi))*np.trace(gf_a.imag)
-		gf_b_trace = -(1/(np.pi))*np.trace(gf_b.imag)
-		#gf_trace = np.sum([gf_a_trace,gf_b_trace])
-		#gf_im_trace.append(gf_trace)
-		gf_im_trace.append(gf_b_trace)
+#	for freq in freq_range:
+#       
+#		omega = freq
+#		iomega = freq + broadening*1j
+#
+#
+#		for orb in range(nmo):
+#
+#			T_a = calculate_T(direct_adc, t_amp, orb, spin = "alpha")
+#			gf_a[orb,orb] = calculate_GF(direct_adc,apply_H,omega,orb,T_a)
+#			
+#			#T_b = calculate_T(direct_adc, t_amp, orb, spin = "beta")
+#			#gf_b[orb,orb] = calculate_GF(direct_adc,apply_H,omega,orb,T_b)
+#
+#		gf_a_trace = -(1/(np.pi))*np.trace(gf_a.imag)
+#		#gf_b_trace = -(1/(np.pi))*np.trace(gf_b.imag)
+#		#gf_trace = np.sum([gf_a_trace,gf_b_trace])
+#		#gf_im_trace.append(gf_trace)
+#		gf_im_trace.append(gf_a_trace)
         
+
+#	return gf_im_trace         
+
+	freq = -0.40
+	omega = freq
+	iomega = freq + broadening*1j
 	
-	return gf_im_trace         
+	orb = 5
+	
+	T_a = calculate_T(direct_adc, t_amp, orb, spin = "alpha")
+	gf_a[orb,orb] = calculate_GF(direct_adc,apply_H,omega,orb,T_a)
+	
+	gf_a_trace = -(1/(np.pi))*np.trace(gf_a.imag)
+	gf_im_trace.append(gf_a_trace)
+
+	return gf_im_trace
+
+
+
+
+
+
 
 
 def calculate_T(direct_adc, t_amp, orb, spin=None):
@@ -936,9 +956,7 @@ def define_H(direct_adc,t_amp):
     t2_1, t2_2, t1_2, t1_3 = t_amp
 
     t2_1_a, t2_1_ab, t2_1_b = t2_1
-    #t2_2_a, t2_2_ab, t2_2_b = t2_2
     t1_2_a, t1_2_b = t1_2
-    #t1_3_a, t1_3_b = t1_3
     
 
     nocc_a = direct_adc.nocc_a
@@ -980,6 +998,10 @@ def define_H(direct_adc,t_amp):
     v2e_oooo_a,v2e_oooo_ab,v2e_oooo_b = direct_adc.v2e.oooo
     v2e_vvvo_a,v2e_vvvo_ab,v2e_vvvo_b = direct_adc.v2e.vvvo
     v2e_ovov_a,v2e_ovov_ab,v2e_ovov_b = direct_adc.v2e.ovov
+    v2e_ovvv_a,v2e_ovvv_ab,v2e_ovvv_b = direct_adc.v2e.ovvv
+    v2e_vvov_a,v2e_vvov_ab,v2e_vvov_b = direct_adc.v2e.vvov
+    v2e_ovvo_a,v2e_ovvo_ab,v2e_ovvo_b = direct_adc.v2e.ovvo
+    v2e_voov_a,v2e_voov_ab,v2e_voov_b = direct_adc.v2e.voov
 
     v2e_vooo_1_a = v2e_vooo_a[:,:,ij_ind_a[0],ij_ind_a[1]].transpose(1,0,2).reshape(nocc_a,-1)
     v2e_vooo_1_b = v2e_vooo_a[:,:,ij_ind_b[0],ij_ind_b[1]].transpose(1,0,2).reshape(nocc_a,-1)
@@ -1076,85 +1098,163 @@ def define_H(direct_adc,t_amp):
         s[s_aba:f_aba] += D_aij_aba * r_aba
         s[s_bbb:f_bbb] += D_aij_b * r_bbb
 
-#        if (method == "adc(2)-e" or method == "adc(3)"):
-#        	
-#       
-#                t2_2_a, t2_2_ab, t2_2_b = t2_2
-#
-#                #print("Calculating additional terms for adc(2)-e")	
-#        
-#                # ajk - bil block
-#
-#                temp_a = np.einsum('ab,xywv->axybvw',idn_vir_a,v2e_oooo_a,optimize = True)
-#                
-#                temp_1_a = -np.einsum('wx,byav->axybvw',idn_occ_a, v2e_vovo_a, optimize = True)
-#                temp_1_a -= temp_1_a.transpose(0,2,1,3,4,5).copy()
-#                
-#                temp_2_a = np.einsum('vx,byaw->axybvw',idn_occ_a, v2e_vovo_a, optimize=True)
-#                temp_2_a -= temp_2_a.transpose(0,2,1,3,4,5).copy()
-#
-#                temp_a += temp_1_a+temp_2_a
-#
-#                temp_a = temp_a[:,ij_ind_a[0],ij_ind_a[1],:,:,:]
-#                temp_a = temp_a[:,:,:,ij_ind_a[0],ij_ind_a[1]].reshape(n_doubles_aaa,n_doubles_aaa)
-#                
-#
-#                
-#                s[s_aaa:f_aaa]  += np.einsum('pq,q->p',temp_a, r_aaa, optimize = True)
-#
-#
-#
-#                temp_bab = -np.einsum('ab,xyvw->axybvw',idn_vir_b,v2e_oooo_ab,optimize = True).reshape(n_doubles_bab,n_doubles_bab)
-#                
-#                temp_1_bab = 0.5*np.einsum('wy,xbva->axybvw',idn_occ_b, v2e_ovov_ab, optimize = True).reshape(n_doubles_bab,n_doubles_bab)
-#                temp_1_bab += 0.5*np.einsum('wy,xbva->axybvw',idn_occ_a, v2e_ovov_b, optimize = True).reshape(n_doubles_bab,n_doubles_bab)
-#                
-#                temp_2_bab = 0.5*np.einsum('vx,byaw->axybvw',idn_occ_a, v2e_ovov_b, optimize=True).reshape(n_doubles_bab,n_doubles_bab)
-#                temp_2_bab += 0.5*np.einsum('vx,byaw->axybvw',idn_occ_b, v2e_ovov_ab, optimize=True).reshape(n_doubles_bab,n_doubles_bab)
-#
-#                temp_bab += temp_1_bab+temp_2_bab
-#
-#
-#                s[s_bab:f_bab] += np.einsum('pq,q->p',temp_bab, r_bab, optimize = True)  
-#
-#
-#
-#                temp_aba = -np.einsum('ab,xyvw->axybvw',idn_vir_a,v2e_oooo_ab,optimize = True).reshape(n_doubles_aba,n_doubles_aba)
-#                
-#                temp_1_aba = 0.5*np.einsum('wy,bxav->axybvw',idn_occ_a, v2e_vovo_ab, optimize = True).reshape(n_doubles_aba,n_doubles_aba)
-#                temp_1_aba += 0.5*np.einsum('wy,bxav->axybvw',idn_occ_a, v2e_vovo_b, optimize = True).reshape(n_doubles_aba,n_doubles_aba)
-#                
-#                temp_2_aba = 0.5*np.einsum('vx,byaw->axybvw',idn_occ_b, v2e_vovo_a, optimize=True).reshape(n_doubles_aba,n_doubles_aba)
-#                temp_2_aba += 0.5*np.einsum('vx,byaw->axybvw',idn_occ_a, v2e_vovo_ab, optimize=True).reshape(n_doubles_aba,n_doubles_aba)
-#
-#                temp_aba += temp_1_aba+temp_2_aba
-#
-#
-#                s[s_aba:f_aba] += np.einsum('pq,q->p',temp_aba, r_aba, optimize = True)  
-#
-#
-#
-#                temp_b = np.einsum('ab,xywv->axybvw',idn_vir_b,v2e_oooo_b,optimize = True)
-#                
-#                temp_1_b = -np.einsum('wx,byav->axybvw',idn_occ_b, v2e_vovo_b, optimize = True)
-#                temp_1_b -= temp_1_b.transpose(0,2,1,3,4,5).copy()
-#                
-#                temp_2_b = np.einsum('vx,byaw->axybvw',idn_occ_b, v2e_vovo_b, optimize=True)
-#                temp_2_b -= temp_2_b.transpose(0,2,1,3,4,5).copy()
-#
-#                temp_b += temp_1_b+temp_2_b
-#
-#                temp_b = temp_b[:,ij_ind_b[0],ij_ind_b[1],:,:,:]
-#                temp_b = temp_b[:,:,:,ij_ind_b[0],ij_ind_b[1]].reshape(n_doubles_bbb,n_doubles_bbb)
-#                
-#
-#
-#                s[s_bbb:f_bbb]  += np.einsum('pq,q->p',temp_b, r_bbb, optimize = True)
+        if (method == "adc(2)-e" or method == "adc(3)"):
+        	
+       
+                t2_2_a, t2_2_ab, t2_2_b = t2_2
+
+                #print("Calculating additional terms for adc(2)-e")	
+        
+                # ajk - bil block
+
+
+
+#                temp_a = -v2e_oooo_a[:,:,ij_ind_a[0],ij_ind_a[1]]
+                r_aaa = r_aaa.reshape(nvir_a,-1)
+#                temp = np.einsum('jkp,ap->ajk',temp_a,r_aaa ,optimize = True)
+
+#                print (np.linalg.norm(temp))
+#                exit() 
+#                s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1)
+
+                
+
+                r_bab = r_bab.reshape(nvir_b,nocc_a,nocc_b)
+#                s[s_bab:f_bab] -= np.einsum('jkil,ail->ajk',v2e_oooo_ab,r_bab,optimize = True).reshape(-1)
+
+
+                r_aba = r_aba.reshape(nvir_a,nocc_b,nocc_a)
+#                s[s_aba:f_aba] -= np.einsum('kjli,ail->ajk',v2e_oooo_ab,r_aba,optimize = True).reshape(-1)
+
+
+                temp_b = -v2e_oooo_b[:,:,ij_ind_b[0],ij_ind_b[1]]
+                r_bbb = r_bbb.reshape(nvir_b,-1)
+                temp = np.einsum('jkp,ap->ajk',temp_b,r_bbb,optimize = True)
+                s[s_bbb:f_bbb] += temp[:,ij_ind_b[0],ij_ind_b[1]].reshape(n_doubles_bbb)
+
+
+
+                r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a))
+                r_aaa_u[:,ij_ind_a[0],ij_ind_a[1]]= r_aaa.copy()    
+                r_aaa_u[:,ij_ind_a[1],ij_ind_a[0]]= -r_aaa.copy()   
+
+                r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b))
+                r_bbb_u[:,ij_ind_b[0],ij_ind_b[1]]= r_bbb.copy()    
+                r_bbb_u[:,ij_ind_b[1],ij_ind_b[0]]= -r_bbb.copy()   
+
+
+                temp = 0.5*np.einsum('jkli,ail->ajk',v2e_oooo_a,r_aaa_u ,optimize = True)
+
+
+                s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1)
+
+
+                temp = 0.5*np.einsum('jkli,ail->ajk',v2e_oooo_b,r_bbb_u,optimize = True)
+
+                s[s_bbb:f_bbb] += temp[:,ij_ind_b[0],ij_ind_b[1]].reshape(-1)
 
 
 
 
-        if (method == "adc(3)"):
+                r_bab = r_bab.reshape(nvir_b,nocc_a,nocc_b)
+                s[s_bab:f_bab] -= np.einsum('jkil,ail->ajk',v2e_oooo_ab,r_bab,optimize = True).reshape(-1)
+
+
+                r_aba = r_aba.reshape(nvir_a,nocc_b,nocc_a)
+                s[s_aba:f_aba] -= np.einsum('kjli,ail->ajk',v2e_oooo_ab,r_aba,optimize = True).reshape(-1)
+
+
+
+                temp = 0.5*np.einsum('bkal,bjl->ajk',v2e_vovo_a,r_aaa_u,optimize = True)
+                temp -= 0.5*np.einsum('kbal,blj->ajk',v2e_ovvo_ab,r_bab,optimize = True)
+
+                s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1)             
+
+                s[s_bab:f_bab] -= 0.5*np.einsum('bkla,bjl->ajk',v2e_voov_ab,r_aaa_u,optimize = True).reshape(-1)
+                s[s_bab:f_bab] += 0.5*np.einsum('bkal,blj->ajk',v2e_vovo_b,r_bab,optimize = True).reshape(-1)
+
+
+                               
+                temp = 0.5*np.einsum('bkal,bjl->ajk',v2e_vovo_b,r_bbb_u,optimize = True)
+                temp -= 0.5*np.einsum('bkla,blj->ajk',v2e_voov_ab,r_aba,optimize = True)
+
+
+                s[s_bbb:f_bbb] += temp[:,ij_ind_b[0],ij_ind_b[1]].reshape(-1)    
+
+
+                s[s_aba:f_aba] -= 0.5*np.einsum('kbal,bjl->ajk',v2e_ovvo_ab,r_bbb_u,optimize = True).reshape(-1)
+                s[s_aba:f_aba] += 0.5*np.einsum('bkal,blj->ajk',v2e_vovo_a,r_aba,optimize = True).reshape(-1)
+
+
+                temp = -0.5*np.einsum('bjal,bkl->ajk',v2e_vovo_a,r_aaa_u,optimize = True)
+                temp += 0.5*np.einsum('jbal,blk->ajk',v2e_ovvo_ab,r_bab,optimize = True)
+
+
+                s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1)             
+
+
+                s[s_bab:f_bab] +=  0.5*np.einsum('bjal,bkl->ajk',v2e_vovo_ab,r_bab,optimize = True).reshape(-1)
+
+                print (np.linalg.norm(s[s_bab:f_bab]))
+                exit()
+
+                temp = -0.5*np.einsum('bjal,bkl->ajk',v2e_vovo_b,r_bbb_u,optimize = True)
+                temp += 0.5*np.einsum('bjla,blk->ajk',v2e_voov_ab,r_aba,optimize = True)
+
+
+                s[s_bbb:f_bbb] += temp[:,ij_ind_b[0],ij_ind_b[1]].reshape(-1)             
+
+
+                s[s_aba:f_aba] += 0.5*np.einsum('bjal,bkl->ajk',v2e_vovo_ab,r_aba,optimize = True).reshape(-1)
+
+
+                temp = -0.5*np.einsum('bkai,bij->ajk',v2e_vovo_a,r_aaa_u,optimize = True)
+                temp -= 0.5*np.einsum('kbai,bij->ajk',v2e_ovvo_ab,r_bab,optimize = True)
+
+
+                s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1)             
+
+
+                s[s_bab:f_bab] += 0.5*np.einsum('bkia,bij->ajk',v2e_voov_ab,r_aaa_u,optimize = True).reshape(-1)
+                s[s_bab:f_bab] += 0.5*np.einsum('bkai,bij->ajk',v2e_vovo_b,r_bab,optimize = True).reshape(-1)
+
+
+                temp = -0.5*np.einsum('bkai,bij->ajk',v2e_vovo_b,r_bbb_u,optimize = True)
+                temp -= 0.5*np.einsum('bkia,bij->ajk',v2e_voov_ab,r_aba,optimize = True)
+
+
+                s[s_bbb:f_bbb] += temp[:,ij_ind_b[0],ij_ind_b[1]].reshape(-1)             
+
+
+                s[s_aba:f_aba] += 0.5*np.einsum('kbai,bij->ajk',v2e_ovvo_ab,r_bbb_u,optimize = True).reshape(-1)
+                s[s_aba:f_aba] += 0.5*np.einsum('bkai,bij->ajk',v2e_vovo_a,r_aba,optimize = True).reshape(-1)
+                 
+
+                temp = 0.5*np.einsum('bjai,bik->ajk',v2e_vovo_a,r_aaa_u,optimize = True)
+                temp += 0.5*np.einsum('jbai,bik->ajk',v2e_ovvo_ab,r_bab,optimize = True)
+
+
+
+                s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1)             
+
+
+                s[s_bab:f_bab] += 0.5*np.einsum('bjai,bki->ajk',v2e_vovo_ab,r_bab,optimize = True).reshape(-1)
+
+
+                s[s_aba:f_aba] += 0.5*np.einsum('bjai,bki->ajk',v2e_vovo_ab,r_aba,optimize = True).reshape(-1)
+
+
+                temp = 0.5*np.einsum('bjai,bik->ajk',v2e_vovo_b,r_bbb_u,optimize = True)
+                temp += 0.5*np.einsum('bjia,bik->ajk',v2e_voov_ab,r_aba,optimize = True)
+
+
+                s[s_bbb:f_bbb] += temp[:,ij_ind_b[0],ij_ind_b[1]].reshape(-1)   
+
+                print (np.linalg.norm(s[s_bab:f_bab]))
+                exit()
+          
+
+#        if (method == "adc(3)"):
         	
                 #print("Calculating additional terms for adc(3)")	
                  
@@ -1162,18 +1262,61 @@ def define_H(direct_adc,t_amp):
                
                 # ADC(3) i - kja block
 
+#                t2_1_a_t = t2_1_a[ij_ind_a[0],ij_ind_a[1],:,:]
+#                temp = np.einsum('pbc,bcai->iap',t2_1_a_t,v2e_vvvo_a)
+#           
+#                r_aaa = r_aaa.reshape(nvir_a,-1)
+#                s[s_a:f_a] += np.einsum('iap,ap->i',temp, r_aaa, optimize=True)
+#                
+#
+#                temp_1 = -np.einsum('jkbc,bcia->iajk',t2_1_ab,v2e_vvov_ab)
+#
+#                temp_1 = temp_1.reshape(nocc_a,-1)
+#
+#                s[s_a:f_a] += np.einsum('ip,p->i',temp_1, r_bab, optimize=True)
+#
+#                 
+#                r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a))
+#                r_aaa_u[:,ij_ind_a[0],ij_ind_a[1]]= r_aaa.copy()    
+#                r_aaa_u[:,ij_ind_a[1],ij_ind_a[0]]= -r_aaa.copy()    
+#
+#
+#
+#                r_bab = r_bab.reshape(nvir_b,nocc_a,nocc_b)
+#                r_bba = -r_bab.transpose(0,2,1).copy()
+#
+#                temp = np.einsum('ljba,ajk->lkb',t2_1_ab,r_bba)
+#                s[s_a:f_a] += np.einsum('lkb,kbil->i',temp,v2e_ovoo_a)
+#
+#                
+#                temp = np.einsum('jlab,ajk->lkb',t2_1_b,r_bba)
+#                s[s_a:f_a] += np.einsum('lkb,kbil->i',temp,v2e_ovoo_ab)
+#   
+#
+#                temp = np.einsum('jlba,ajk->lkb',t2_1_ab,r_bab)
+#                s[s_a:f_a] -= 0.5*np.einsum('lkb,bkil->i',temp,v2e_vooo_ab)
+#
+#                temp = np.einsum('jlab,kbil->iajk',t2_1_a,v2e_ovoo_a, optimize = True)
+#                temp += np.einsum('jlab,kbil->iajk',t2_1_ab,v2e_ovoo_ab, optimize = True)
+#                temp = temp[:,:,ij_ind_a[0],ij_ind_a[1]].reshape(nocc_a,-1)
+#
+#                r_aaa = r_aaa.reshape(-1)
+#
+#                s[s_a:f_a] += np.einsum('ip,p->i',temp, r_aaa, optimize=True)
+#
+#                temp_1 = np.einsum('jlba,bkil->iajk',t2_1_ab,v2e_vooo_ab)
+#                temp_2 = np.einsum('jlab,kbil->iakj',t2_1_ab,v2e_ovoo_a)
+#                temp_2 += np.einsum('jlab,kbil->iakj',t2_1_b,v2e_ovoo_ab)
+#                
+#
+#                temp_1 = temp_1.reshape(nocc_a,-1)
+#                temp_2 = temp_2.reshape(nocc_a,-1)
+#
+#                s[s_a:f_a] += np.einsum('ip,p->i',temp_1, r_bab, optimize=True)
+#                s[s_a:f_a] -= np.einsum('ip,p->i',temp_2, r_bab, optimize=True)
 
-                temp = 0.5*np.einsum('vwde,bjde->jbvw',t2_1_a,v2e_vovv_a)
-                temp = temp[:,:,ij_ind_a[0],ij_ind_a[1]].reshape(nocc_a,-1)
 
-                temp_1 = -0.5*np.einsum('vwde,bjed->jbvw',t2_1_ab,v2e_vovv_ab)
-                temp_1 += 0.5*np.einsum('vwed,bjde->jbvw',t2_1_ab,v2e_vovv_ab)
-                
 
-                temp_1 = temp_1.reshape(nocc_a,-1)
-
-                #s[s_a:f_a] += np.einsum('jp,p->j',temp, r[s_aaa:f_aaa], optimize=True)
-                #s[s_a:f_a] += 2*np.einsum('jp,p->j',temp_1, r[s_bab:f_bab], optimize=True)
 
 
 #                temp_1 = np.einsum('vlbd,jlwd->jbvw',t2_1,v2e_so_ooov)
@@ -1188,21 +1331,58 @@ def define_H(direct_adc,t_amp):
 #                s1 -= np.einsum('jp,p->j',temp_2, r2, optimize=True)
 #
 #
-#                # ADC(3) ajk - i block
+                # ADC(3) ajk - i block
+                
+                
+#                t2_1_a_t = t2_1_a[ij_ind_a[0],ij_ind_a[1],:,:]
+#                temp = np.einsum('pbc,bcai->api',t2_1_a_t,v2e_vvvo_a)
+#           
+#                s[s_aaa:f_aaa] += np.einsum('api,i->ap',temp, r_a, optimize=True).reshape(-1)
+#
+#                temp_1 = -np.einsum('jkbc,bcia->iajk',t2_1_ab,v2e_vvov_ab)
+#
+#                temp_1 = temp_1.reshape(nocc_a,-1)
+#
+#                s[s_bab:f_bab] += np.einsum('ip,i->p',temp_1, r_a, optimize=True).reshape(-1)
+#
+#     
+#                temp_1 = np.einsum('i,kbil->kbl',r_a, v2e_ovoo_a)
+#                temp_2 = np.einsum('i,kbil->kbl',r_a, v2e_ovoo_ab)
+#                temp_3 = np.einsum('i,bkil->kbl',r_a, v2e_vooo_ab)
+#               
+#                temp  = np.einsum('kbl,jlab->ajk',temp_1,t2_1_a)
+#                temp += np.einsum('kbl,jlab->ajk',temp_2,t2_1_ab)
+#
+#                s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1] ].reshape(-1)
 #                
-#                temp =  0.5*np.einsum('xyde,deai->axyi',t2_1, v2e_so_vvvo)
-#                temp = temp[:,ij_ind[0],ij_ind[1],:]
-#                
+#
+#                s[s_bab:f_bab] -= np.einsum('kbl,jlba->ajk',temp_3,t2_1_ab).reshape(-1)
+#
+#                temp_4 = np.einsum('kbl,ljba->ajk',temp_1,t2_1_ab)
+#                temp_4 += np.einsum('kbl,jlab->ajk',temp_2,t2_1_b)
+#                temp_4 = temp_4.transpose(0,2,1).reshape(-1)
+#
+#                s[s_bab:f_bab] += temp_4
+
+
+                
+
+                 
+    
+
+
+
+
 #                temp_1 = np.einsum('xlad,ydil->axyi',t2_1, v2e_so_ovoo)
 #                temp_2 = temp_1.transpose(0,2,1,3).copy()
 #                
 #                temp_1 = temp_1[:,ij_ind[0],ij_ind[1],:]
 #                temp_2 = temp_2[:,ij_ind[0],ij_ind[1],:]
-#
+
 #                s2 += np.einsum('api,i->ap',temp, r1 ,optimize = True).reshape(-1)
 #                s2 += np.einsum('api,i->ap',temp_1, r1 ,optimize = True).reshape(-1)
 #                s2 -= np.einsum('api,i->ap',temp_2, r1 ,optimize = True).reshape(-1)
-        
+#        
         
                 #s = np.concatenate((s1,s2))
         return s

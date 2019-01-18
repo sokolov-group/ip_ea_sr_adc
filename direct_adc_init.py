@@ -75,6 +75,7 @@ class DirectADC:
         self.v2e.vovo = transform_antisymmetrize_integrals(mf, (vir,occ,vir,occ))
         self.v2e.vvov = transform_antisymmetrize_integrals(mf, (vir,vir,occ,vir))
         self.v2e.ovvo = transform_antisymmetrize_integrals(mf, (occ,vir,vir,occ))
+        self.v2e.ovvv = transform_antisymmetrize_integrals(mf, (occ,vir,vir,vir))
         
         #print (np.linalg.norm(self.v2e.oovv[0]))
         #exit()
