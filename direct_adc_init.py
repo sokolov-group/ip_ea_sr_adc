@@ -9,11 +9,18 @@ class DirectADC:
     def __init__(self, mf):
 
         print ("Initializing Direct ADC...\n")
-
+     
         # General info
-        self.mo_a = mf.mo_coeff.copy()
-        self.mo_b = mf.mo_coeff.copy()
-        self.nmo = self.mo_a.shape[1]
+        mo = mf.mo_coeff.copy()
+        self.nmo = mo.shape[1]
+
+        for p in range(self.nmo):
+            max_coeff_ind = np.argmax(np.absolute(mo[:,p]))
+            if (mo[max_coeff_ind,p] < 0.0):
+                mo[:,p] *= -1.0
+
+        self.mo_a = mo.copy()
+        self.mo_b = mo.copy()
         self.nelec = mf.mol.nelectron
         self.nelec_a = mf.mol.nelectron // 2
         self.nelec_b = mf.mol.nelectron // 2
