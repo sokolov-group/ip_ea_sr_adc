@@ -2,6 +2,7 @@ import sys
 import numpy as np
 from functools import reduce
 import pyscf.ao2mo
+import pyscf.lib
 import direct_adc_spin_integrated.direct_adc_compute as direct_adc_compute
 
 
@@ -46,6 +47,8 @@ class DirectADC:
         h1e_ao = mf.get_hcore()
         self.h1e_a = reduce(np.dot, (self.mo_a.T, h1e_ao, self.mo_a))
         self.h1e_b = reduce(np.dot, (self.mo_b.T, h1e_ao, self.mo_b))
+
+        self.davidson = pyscf.lib.linalg_helper.davidson
         
 
 
