@@ -45,6 +45,7 @@ def kernel(direct_adc):
     print ("MP2 total energy:        ", (direct_adc.e_scf + e_mp2), "\n")
 
     # Compute the sigma vector
+    #apply_H, precond = define_H(direct_adc,t_amp)
     apply_H = define_H(direct_adc,t_amp)
 
     # Compute Green's functions directly
@@ -1054,6 +1055,8 @@ def define_H(direct_adc,t_amp):
     
 
     M_ij_a, M_ij_b = get_Mij(direct_adc,t_amp)
+
+    # Compute precond in h1-h1 block
 
     def sigma_(r):
 
