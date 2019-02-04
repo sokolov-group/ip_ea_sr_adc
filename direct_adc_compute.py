@@ -44,9 +44,13 @@ def kernel(direct_adc):
     print ("MP2 correlation energy:  ", e_mp2)
     print ("MP2 total energy:        ", (direct_adc.e_scf + e_mp2), "\n")
 
-    # Compute the sigma vector
+    # Compute the sigma vector,preconditioner and guess vector
+    
+    apply_H, precond ,x0 = setup_davidson(direct_adc,t_amp)     
+    
     #apply_H, precond = define_H(direct_adc,t_amp)
-    apply_H = define_H(direct_adc,t_amp)
+
+    #apply_H = define_H(direct_adc,t_amp)
 
     # Compute Green's functions directly
     dos = calc_density_of_states(direct_adc, apply_H, t_amp)
@@ -944,6 +948,16 @@ def get_Mij(direct_adc,t_amp):
     return M_ij
 
 
+def setup_davisdon(direct_adc,t_amp):
+
+    apply_H = None
+    precond = None
+
+    apply_H , precond = define_H(direct_adc,t_amp)
+
+    x0 = None
+
+    return apply_H,precond,x0
 
 
 
@@ -1010,7 +1024,6 @@ def define_H(direct_adc,t_amp):
 
     v2e_oovo_1_a = v2e_oovo_a[ij_ind_a[0],ij_ind_a[1],:,:].transpose(1,0,2)
     v2e_oovo_1_b = v2e_oovo_b[ij_ind_b[0],ij_ind_b[1],:,:].transpose(1,0,2)
-    #v2e_oovo_1_ab = -v2e_oovo_ab.transpose(2,0,1,3)
     v2e_oovo_1_ab = -v2e_oovo_ab.transpose(2,0,1,3)
 
 
@@ -1055,8 +1068,28 @@ def define_H(direct_adc,t_amp):
     
 
     M_ij_a, M_ij_b = get_Mij(direct_adc,t_amp)
+    
 
+
+    precond = np.zeros(dim)
+    
+    
     # Compute precond in h1-h1 block
+    M_ij_a_diag = np.diagonal(M_ij_a)
+    M_ij_b_diag = np.diagonal(M_ij_b)
+
+
+    precond[s_a:f_a] = M_ij_a_diag.copy()
+    precond[s_b:f_b] = M_ij_b_diag.copy()
+    
+    # Compute precond in 2p1h-2p1h block
+  
+
+    precond[s_aaa:f_aaa] = D_aij_a
+    precond[s_bab:f_bab] = D_aij_bab
+    precond[s_aba:f_aba] = D_aij_aba
+    precond[s_bbb:f_bbb] = D_aij_b
+
 
     def sigma_(r):
 
@@ -1085,7 +1118,6 @@ def define_H(direct_adc,t_amp):
         
         
         s[s_a:f_a] += np.einsum('ip,p->i', v2e_vooo_1_a, r_aaa, optimize = True)
-        #s[s_a:f_a] += np.einsum('ip,p->i', v2e_vooo_1_ab_a, r_bab, optimize = True)
         s[s_a:f_a] -= np.einsum('iajk,akj->i', v2e_ovoo_ab, r_bab, optimize = True)
 
 
@@ -1117,15 +1149,6 @@ def define_H(direct_adc,t_amp):
         s[s_aba:f_aba] += D_aij_aba * r_aba.reshape(-1)
         s[s_bbb:f_bbb] += D_aij_b * r_bbb
 
-
-        #temp = s[s_bab:f_bab].reshape(nvir_b,nocc_a,nocc_b).transpose(0,2,1)
-        #s[s_bab:f_bab] = temp.reshape(-1)
-
-        #print (np.sum(s[s_aaa:f_aaa]))
-        #print ((s[s_bab:f_bab]))
-        #exit()
-
-        
 
 
         if (method == "adc(2)-e" or method == "adc(3)"):
@@ -1279,11 +1302,6 @@ def define_H(direct_adc,t_amp):
 
                temp = s[s_aba:f_aba].reshape(nvir_a,nocc_b,nocc_a).transpose(0,2,1).copy()
                s[s_aba:f_aba] = temp.reshape(-1)
-
-#               print (s[s_bab:f_bab])
-#               print (s[s_aba:f_aba])
-#               exit()
-
 
 
         if (method == "adc(3)"):
@@ -1501,6 +1519,8 @@ def define_H(direct_adc,t_amp):
 
 
         return s
+    
+    #return sigma_,precond
     return sigma_
 
 
@@ -1644,6 +1664,4 @@ def solve_conjugate_gradients(direct_adc,apply_H,T,r,omega,orb):
     if conv:
         print ("Iterations converged")
     else:
-        raise Exception("Iterations did not converge")
-
-    return r
+        raise Exception("Iterations did not converge")    return r
