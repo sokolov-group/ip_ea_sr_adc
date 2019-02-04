@@ -1667,8 +1667,8 @@ def solve_conjugate_gradients(direct_adc,apply_H,precond,T,r,omega,orb):
         r = r + alpha * d
  
         res = res - alpha * q 
-        s = (precond+1e-6)**(-1)*res
-        #s = res
+        #s = (precond+1e-6)**(-1)*res
+        s = res
 
         delta_old = delta_new
         #delta_new = np.dot(np.ravel(res), np.ravel(res))
