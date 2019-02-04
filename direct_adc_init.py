@@ -42,6 +42,7 @@ class DirectADC:
         self.tol = 1e-6
         self.maxiter = 200
         self.method = "adc(3)"
+        self.algorithm = "dynamical" # dynamical vs conventional
 
         # Integral transformation
         h1e_ao = mf.get_hcore()
@@ -93,7 +94,12 @@ class DirectADC:
 
     def kernel(self):
 
-        direct_adc_compute.kernel(self)
+        if self.algorithm == "dynamical":
+            direct_adc_compute.kernel(self)
+        elif self.algorithm == "conventional":
+            direct_adc_compute.conventional(self)
+        else:
+            raise Exception("Algorithm is not recognized")
 
 
 def transform_antisymmetrize_integrals(mf,mo):

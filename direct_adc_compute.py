@@ -21,8 +21,7 @@ def kernel(direct_adc):
     print ("Number of beta virtual orbitals:   ", direct_adc.nvir_b)
     print ("Nuclear repulsion energy:          ", direct_adc.enuc,"\n")
     
-
-    print ("Number sin_aof states:            ", direct_adc.nstates)
+    print ("Number of states:            ", direct_adc.nstates)
     print ("Frequency step:              ", direct_adc.step)
     print ("Frequency range:             ", direct_adc.freq_range)
     print ("Broadening:                  ", direct_adc.broadening)
@@ -39,18 +38,12 @@ def kernel(direct_adc):
     
     # Compute MP2 energy
     e_mp2 = compute_mp2_energy(direct_adc, t_amp)
-
      
     print ("MP2 correlation energy:  ", e_mp2)
     print ("MP2 total energy:        ", (direct_adc.e_scf + e_mp2), "\n")
 
     # Compute the sigma vector,preconditioner and guess vector
-    
-    apply_H, precond ,x0 = setup_davidson(direct_adc,t_amp)     
-    
-    #apply_H, precond = define_H(direct_adc,t_amp)
-
-    #apply_H = define_H(direct_adc,t_amp)
+    apply_H, precond = define_H(direct_adc,t_amp)
 
     # Compute Green's functions directly
     dos = calc_density_of_states(direct_adc, apply_H, t_amp)
@@ -62,9 +55,55 @@ def kernel(direct_adc):
 
     # Save to a file or plot depeneding on user input
     # Plot     
-
-
+   
     
+def conventional(direct_adc):
+
+    if (direct_adc.method != "adc(2)" and direct_adc.method != "adc(3)" and direct_adc.method != "adc(2)-e"):
+        raise Exception("Method is unknown")
+
+    np.set_printoptions(linewidth=150, edgeitems=10,threshold=100000, suppress=True)
+
+    print ("\nStarting spin-orbital direct ADC code..\n")
+    print ("Number of electrons:               ", direct_adc.nelec)
+    print ("Number of alpha electrons:         ", direct_adc.nelec_a)
+    print ("Number of beta electrons:          ", direct_adc.nelec_b)
+    print ("Number of basis functions:         ", direct_adc.nmo)
+    print ("Number of alpha occupied orbitals: ", direct_adc.nocc_a)
+    print ("Number of beta occupied orbitals:  ", direct_adc.nocc_b)
+    print ("Number of alpha virtual orbitals:  ", direct_adc.nvir_a)
+    print ("Number of beta virtual orbitals:   ", direct_adc.nvir_b)
+    print ("Number of states:                  ", direct_adc.nstates)
+    print ("Nuclear repulsion energy:          ", direct_adc.enuc,"\n")
+    
+    print ("SCF orbital energies(alpha):\n", direct_adc.mo_energy_a, "\n")
+    print ("SCF orbital energies(beta):\n", direct_adc.mo_energy_b, "\n")
+
+    t_start = time.time()
+
+    # Compute amplitudes
+    t_amp = compute_amplitudes(direct_adc)
+    
+    # Compute MP2 energy
+    e_mp2 = compute_mp2_energy(direct_adc, t_amp)
+     
+    print ("MP2 correlation energy:  ", e_mp2)
+    print ("MP2 total energy:        ", (direct_adc.e_scf + e_mp2), "\n")
+
+    # Compute the sigma vector,preconditioner and guess vector
+    apply_H, precond, x0 = setup_davidsdon(direct_adc, t_amp)
+
+    # Compute Green's functions directly
+    dos = calc_density_of_states(direct_adc, apply_H, t_amp)
+
+    np.savetxt('density_of_states.txt', dos, fmt='%.8f')
+
+    #print ("Computation successfully finished")
+    #print ("Total time:", (time.time() - t_start, "sec"))
+
+    # Save to a file or plot depeneding on user input
+    # Plot     
+   
     
 def compute_amplitudes(direct_adc):
 
@@ -948,7 +987,7 @@ def get_Mij(direct_adc,t_amp):
     return M_ij
 
 
-def setup_davisdon(direct_adc,t_amp):
+def setup_davidsdon(direct_adc,t_amp):
 
     apply_H = None
     precond = None
@@ -958,7 +997,6 @@ def setup_davisdon(direct_adc,t_amp):
     x0 = None
 
     return apply_H,precond,x0
-
 
 
 def define_H(direct_adc,t_amp):
@@ -1026,14 +1064,11 @@ def define_H(direct_adc,t_amp):
     v2e_oovo_1_b = v2e_oovo_b[ij_ind_b[0],ij_ind_b[1],:,:].transpose(1,0,2)
     v2e_oovo_1_ab = -v2e_oovo_ab.transpose(2,0,1,3)
 
-
-    
     d_ij_a = e_occ_a[:,None] + e_occ_a
     d_a_a = e_vir_a[:,None]
     D_n_a = -d_a_a + d_ij_a.reshape(-1)
     D_n_a = D_n_a.reshape((nvir_a,nocc_a,nocc_a))
     D_aij_a = D_n_a.copy()[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1)
-
 
     d_ij_b = e_occ_b[:,None] + e_occ_b
     d_a_b = e_vir_b[:,None]
@@ -1052,7 +1087,6 @@ def define_H(direct_adc,t_amp):
     D_n_aba = -d_a_a + d_ij_ab.reshape(-1)
     D_aij_aba = D_n_aba.reshape(-1)
 
-
     s_a = 0
     f_a = n_singles_a
     s_b = f_a
@@ -1066,30 +1100,23 @@ def define_H(direct_adc,t_amp):
     s_bbb = f_aba
     f_bbb = s_bbb + n_doubles_bbb    
     
-
     M_ij_a, M_ij_b = get_Mij(direct_adc,t_amp)
     
-
-
     precond = np.zeros(dim)
-    
     
     # Compute precond in h1-h1 block
     M_ij_a_diag = np.diagonal(M_ij_a)
     M_ij_b_diag = np.diagonal(M_ij_b)
-
 
     precond[s_a:f_a] = M_ij_a_diag.copy()
     precond[s_b:f_b] = M_ij_b_diag.copy()
     
     # Compute precond in 2p1h-2p1h block
   
-
     precond[s_aaa:f_aaa] = D_aij_a
     precond[s_bab:f_bab] = D_aij_bab
     precond[s_aba:f_aba] = D_aij_aba
     precond[s_bbb:f_bbb] = D_aij_b
-
 
     def sigma_(r):
 
@@ -1516,13 +1543,13 @@ def define_H(direct_adc,t_amp):
                temp = s[s_aba:f_aba].reshape(nvir_a,nocc_b,nocc_a).transpose(0,2,1)
                s[s_aba:f_aba] = temp.reshape(-1)
 
-
+               s *= -1.0
 
         return s
-    
-    #return sigma_,precond
-    return sigma_
 
+        precond *= -1.0
+    
+    return sigma_, precond
 
 
 def calculate_GF(direct_adc,apply_H,omega,orb,T):
@@ -1574,7 +1601,7 @@ def calculate_GF(direct_adc,apply_H,omega,orb,T):
 
     sigma = apply_H(imag_r)
 
-    real_r =  (-omega*imag_r  + np.real(sigma))/broadening
+    real_r =  (-omega*imag_r  - np.real(sigma))/broadening
 
 
     n_singles_a = nocc_a
@@ -1612,7 +1639,7 @@ def solve_conjugate_gradients(direct_adc,apply_H,T,r,omega,orb):
      
     # Compute residual
     
-    omega_H = iomega*r - apply_H(r)
+    omega_H = iomega*r + apply_H(r)
     res = T - omega_H
     
      
@@ -1632,7 +1659,7 @@ def solve_conjugate_gradients(direct_adc,apply_H,T,r,omega,orb):
     for imacro in range(maxiter):
 
         
-        Ad = iomega*d - apply_H(d)
+        Ad = iomega*d + apply_H(d)
 
         # q = A * d
         q = Ad
@@ -1664,4 +1691,6 @@ def solve_conjugate_gradients(direct_adc,apply_H,T,r,omega,orb):
     if conv:
         print ("Iterations converged")
     else:
-        raise Exception("Iterations did not converge")    return r
+        raise Exception("Iterations did not converge")    
+
+    return r
