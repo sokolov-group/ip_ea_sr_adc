@@ -42,7 +42,10 @@ class DirectADC:
         self.tol = 1e-6
         self.maxiter = 200
         self.method = "adc(3)"
-        self.algorithm = "dynamical" # dynamical vs conventional
+        self.algorithm = "dynamical" # dynamical vs conventional vs cvs
+
+        # Davidson and CVS specific variables
+        self.n_core = 1 # number of core spatial orbitals
 
         # Integral transformation
         h1e_ao = mf.get_hcore()
@@ -96,7 +99,7 @@ class DirectADC:
 
         if self.algorithm == "dynamical":
             direct_adc_compute.kernel(self)
-        elif self.algorithm == "conventional":
+        elif self.algorithm == "conventional" or self.algorithm == "cvs":
             direct_adc_compute.conventional(self)
         else:
             raise Exception("Algorithm is not recognized")

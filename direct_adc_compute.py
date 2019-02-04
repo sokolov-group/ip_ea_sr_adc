@@ -1114,6 +1114,9 @@ def define_H(direct_adc,t_amp):
 
     def sigma_(r):
 
+        if direct_adc.algorithm == "cvs":
+            r = cvs_projector(direct_adc, r)
+
        
         z = np.zeros((dim))
         s = np.array(z,dtype = complex)
@@ -1539,6 +1542,9 @@ def define_H(direct_adc,t_amp):
 
                s *= -1.0
 
+        if direct_adc.algorithm == "cvs":
+            s = cvs_projector(direct_adc, s)
+
         return s
 
     precond *= -1.0
@@ -1729,3 +1735,50 @@ def compute_guess_vectors(direct_adc, precond, ascending = True):
 
     return x0s
 
+def cvs_projector(direct_adc, r):
+
+    ncore = direct_adc.n_core
+
+    nocc_a = direct_adc.nocc_a
+    nocc_b = direct_adc.nocc_b
+    nvir_a = direct_adc.nvir_a
+    nvir_b = direct_adc.nvir_b
+    
+    n_singles_a = nocc_a
+    n_singles_b = nocc_b
+    n_doubles_aaa = nocc_a * (nocc_a - 1) * nvir_a // 2
+    n_doubles_bab = nvir_b * nocc_a * nocc_b 
+    n_doubles_aba = nvir_a * nocc_b * nocc_a 
+    n_doubles_bbb = nocc_b * (nocc_b - 1) * nvir_b // 2
+    
+    ij_a = np.tril_indices(nocc_a, k=-1)
+    ij_b = np.tril_indices(nocc_b, k=-1)
+
+    s_a = 0
+    f_a = n_singles_a
+    s_b = f_a
+    f_b = s_b + n_singles_b
+    s_aaa = f_b 
+    f_aaa = s_aaa + n_doubles_aaa
+    s_bab = f_aaa
+    f_bab = s_bab + n_doubles_bab
+    s_aba = f_bab
+    f_aba = s_aba + n_doubles_aba
+    s_bbb = f_aba
+    f_bbb = s_bbb + n_doubles_bbb    
+
+    Pr = r.copy()
+
+    Pr[(s_a+ncore):f_a] = 0.0
+    Pr[(s_b+ncore):f_b] = 0.0
+
+    temp = np.zeros((nvir_a, nocc_a, nocc_a))
+    temp[:,ij_a[0],ij_a[1]] = Pr[s_aaa:f_aaa].reshape(nvir_a,-1).copy()
+    temp[:,ij_a[1],ij_a[0]] = -Pr[s_aaa:f_aaa].reshape(nvir_a,-1).copy()
+
+    temp[:,ncore:,ncore:] = 0.0
+    temp[:,:ncore,:ncore] = 0.0
+
+    Pr[s_aaa:f_aaa] = temp[:,ij_a[0],ij_a[1]].reshape(-1).copy()
+
+    return Pr
