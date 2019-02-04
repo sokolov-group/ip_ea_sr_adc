@@ -44,6 +44,8 @@ class DirectADC:
         self.method = "adc(3)"
         self.algorithm = "dynamical" # dynamical vs conventional
 
+
+
         # Integral transformation
         h1e_ao = mf.get_hcore()
         self.h1e_a = reduce(np.dot, (self.mo_a.T, h1e_ao, self.mo_a))

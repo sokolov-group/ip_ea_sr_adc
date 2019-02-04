@@ -1645,7 +1645,8 @@ def solve_conjugate_gradients(direct_adc,apply_H,precond,T,r,omega,orb):
         return r
 
     #d = (precond+1e-6)**(-1)*res
-    d = res
+    d = (precond+omega)**(-1)*res
+    #d = res
     
     #delta_new = np.dot(np.ravel(res), np.ravel(res))
     delta_new = np.dot(np.ravel(res), np.ravel(d))
@@ -1668,7 +1669,8 @@ def solve_conjugate_gradients(direct_adc,apply_H,precond,T,r,omega,orb):
  
         res = res - alpha * q 
         #s = (precond+1e-6)**(-1)*res
-        s = res
+        s = (precond+omega)**(-1)*res
+        #s = res
 
         delta_old = delta_new
         #delta_new = np.dot(np.ravel(res), np.ravel(res))
@@ -1676,8 +1678,8 @@ def solve_conjugate_gradients(direct_adc,apply_H,precond,T,r,omega,orb):
 
         beta = delta_new/delta_old
 
-        d = res + beta * d
-        #d = s + beta * d
+        #d = res + beta * d
+        d = s + beta * d
 
         # Compute RMS of the residual
         rms = np.linalg.norm(res)/np.sqrt(res.size)
