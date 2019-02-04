@@ -93,10 +93,16 @@ def conventional(direct_adc):
     # Compute the sigma vector,preconditioner and guess vector
     apply_H, precond, x0 = setup_davidsdon(direct_adc, t_amp)
 
-    # Compute Green's functions directly
-    dos = calc_density_of_states(direct_adc, apply_H, t_amp)
+    E, U = direct_adc.davidson(apply_H, x0, precond, nroots = direct_adc.nstates, verbose = 6, max_cycle=150, max_space=12)
 
-    np.savetxt('density_of_states.txt', dos, fmt='%.8f')
+    print ("\n%s excitation energies (a.u.):" % (direct_adc.method))
+    print (E.reshape(-1, 1))
+    print ("\n%s excitation energies (eV):" % (direct_adc.method))
+    E_ev = E * 27.2114
+    print (E_ev.reshape(-1, 1))
+
+    # Compute Green's functions directly
+#    dos = calc_density_of_states(direct_adc, apply_H, t_amp)
 
     #print ("Computation successfully finished")
     #print ("Total time:", (time.time() - t_start, "sec"))
@@ -987,18 +993,6 @@ def get_Mij(direct_adc,t_amp):
     return M_ij
 
 
-def setup_davidsdon(direct_adc,t_amp):
-
-    apply_H = None
-    precond = None
-
-    apply_H , precond = define_H(direct_adc,t_amp)
-
-    x0 = None
-
-    return apply_H,precond,x0
-
-
 def define_H(direct_adc,t_amp):
 
     method = direct_adc.method
@@ -1547,7 +1541,7 @@ def define_H(direct_adc,t_amp):
 
         return s
 
-        precond *= -1.0
+    precond *= -1.0
     
     return sigma_, precond
 
@@ -1694,3 +1688,38 @@ def solve_conjugate_gradients(direct_adc,apply_H,T,r,omega,orb):
         raise Exception("Iterations did not converge")    
 
     return r
+
+
+def setup_davidsdon(direct_adc, t_amp):
+
+    apply_H = None
+    precond = None
+
+    apply_H, precond = define_H(direct_adc, t_amp)
+
+    x0 = compute_guess_vectors(direct_adc, precond)
+
+    return apply_H, precond, x0
+
+
+def compute_guess_vectors(direct_adc, precond, ascending = True):
+
+    sort_ind = None
+    if ascending:
+        sort_ind = np.argsort(precond)
+    else:
+        sort_ind = np.argsort(precond)[::-1]
+
+    x0s = np.zeros((precond.shape[0], direct_adc.nstates))
+    min_shape = min(precond.shape[0], direct_adc.nstates)
+    x0s[:min_shape,:min_shape] = np.identity(min_shape)
+
+    x0 = np.zeros((precond.shape[0], direct_adc.nstates))
+    x0[sort_ind] = x0s.copy()
+
+    x0s = []
+    for p in range(x0.shape[1]):
+        x0s.append(x0[:,p])
+
+    return x0s
+
