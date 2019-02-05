@@ -93,7 +93,7 @@ def conventional(direct_adc):
     # Compute the sigma vector,preconditioner and guess vector
     apply_H, precond, x0 = setup_davidsdon(direct_adc, t_amp)
 
-    E, U = direct_adc.davidson(apply_H, x0, precond, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space,direct_adc.add=None)
+    E, U = direct_adc.davidson(apply_H, x0, precond, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space)
 
     print ("\n%s excitation energies (a.u.):" % (direct_adc.method))
     print (E.reshape(-1, 1))
@@ -1116,59 +1116,58 @@ def define_H(direct_adc,t_amp):
 
     # cvs
 
+    if direct_adc.algorithm == "cvs":
 
-    
-    if direct_adc.add == "CVS"
+        shift = -100000.0
+        ncore = direct_adc.n_core
 
-        precond[(s_a+ncore):f_a] += 1e-6
-        precond[(s_b+ncore):f_b] += 1e-6
+        precond[(s_a+ncore):f_a] += shift
+        precond[(s_b+ncore):f_b] += shift
 
         temp = np.zeros((nvir_a, nocc_a, nocc_a))
-        temp[:,ij_a[0],ij_a[1]] = precond[s_aaa:f_aaa].reshape(nvir_a,-1).copy()
-        temp[:,ij_a[1],ij_a[0]] = -precond[s_aaa:f_aaa].reshape(nvir_a,-1).copy()
+        temp[:,ij_ind_a[0],ij_ind_a[1]] = precond[s_aaa:f_aaa].reshape(nvir_a,-1).copy()
+        temp[:,ij_ind_a[1],ij_ind_a[0]] = -precond[s_aaa:f_aaa].reshape(nvir_a,-1).copy()
 
-        temp[:,ncore:,ncore:] += 1e-6
-        temp[:,:ncore,:ncore] += 1e-6
+        temp[:,ncore:,ncore:] += shift
+        temp[:,:ncore,:ncore] += shift
 
-        Pr[s_aaa:f_aaa] = temp[:,ij_a[0],ij_a[1]].reshape(-1).copy()
+        precond[s_aaa:f_aaa] = temp[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1).copy()
 
         temp = precond[s_bab:f_bab].copy()
         temp = temp.reshape((nvir_b, nocc_a, nocc_b))
-        temp[:,ncore:,ncore:] += 1e-6
-        temp[:,:ncore,:ncore] += 1e-6
+        temp[:,ncore:,ncore:] += shift
+        temp[:,:ncore,:ncore] += shift
 
         precond[s_bab:f_bab] = temp.reshape(-1).copy()
 
         temp = precond[s_aba:f_aba].copy()
         temp = temp.reshape((nvir_a, nocc_b, nocc_a))
-        temp[:,ncore:,ncore:] += 1e-6
-        temp[:,:ncore,:ncore] += 1e-6
+        temp[:,ncore:,ncore:] += shift
+        temp[:,:ncore,:ncore] += shift
 
         precond[s_aba:f_aba] = temp.reshape(-1).copy()
 
-
         temp = np.zeros((nvir_b, nocc_b, nocc_b))
-        temp[:,ij_a[0],ij_a[1]] = precond[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
-        temp[:,ij_a[1],ij_a[0]] = -precond[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
+        temp[:,ij_ind_b[0],ij_ind_b[1]] = precond[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
+        temp[:,ij_ind_b[1],ij_ind_b[0]] = -precond[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
 
-        temp[:,ncore:,ncore:] += 1e-6
-        temp[:,:ncore,:ncore] += 1e-6
+        temp[:,ncore:,ncore:] += shift
+        temp[:,:ncore,:ncore] += shift
 
-
-        precond[s_bbb:f_bbb] = temp[:,ij_b[0],ij_b[1]].reshape(-1).copy()
-
-
-
+        precond[s_bbb:f_bbb] = temp[:,ij_ind_b[0],ij_ind_b[1]].reshape(-1).copy()
 
     def sigma_(r):
 
         if direct_adc.algorithm == "cvs":
             r = cvs_projector(direct_adc, r)
 
-       
-        z = np.zeros((dim))
-        s = np.array(z,dtype = complex)
-        s.imag = z
+        s = None
+        if direct_adc.algorithm == "dynamical":
+            z = np.zeros((dim))
+            s = np.array(z,dtype = complex)
+            s.imag = z
+        else:
+            s = np.zeros((dim))
 
         
         r_a = r[s_a:f_a]
@@ -1245,11 +1244,20 @@ def define_H(direct_adc,t_amp):
                r_aba = r_aba.reshape(nvir_a,nocc_b,nocc_a)
                r_bbb = r_bbb.reshape(nvir_b,-1)
 
-               r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a),dtype=complex)
+               r_aaa_u = None
+               if direct_adc.algorithm == "dynamical":
+                   r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a),dtype=complex)
+               else:
+                   r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a))
                r_aaa_u[:,ij_ind_a[0],ij_ind_a[1]]= r_aaa.copy()    
                r_aaa_u[:,ij_ind_a[1],ij_ind_a[0]]= -r_aaa.copy()   
 
-               r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b),dtype=complex)
+               r_bbb_u = None
+               if direct_adc.algorithm == "dynamical":
+                   r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b),dtype=complex)
+               else:
+                   r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b))
+
                r_bbb_u[:,ij_ind_b[0],ij_ind_b[1]]= r_bbb.copy()    
                r_bbb_u[:,ij_ind_b[1],ij_ind_b[0]]= -r_bbb.copy()   
 
@@ -1417,12 +1425,18 @@ def define_H(direct_adc,t_amp):
                
 
 
-               r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a),dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a),dtype=complex)
+               else:
+                   r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a))
                r_aaa_u[:,ij_ind_a[0],ij_ind_a[1]]= r_aaa.copy()    
                r_aaa_u[:,ij_ind_a[1],ij_ind_a[0]]= -r_aaa.copy()    
 
 
-               r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b),dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b),dtype=complex)
+               else:
+                   r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b))
                r_bbb_u[:,ij_ind_b[0],ij_ind_b[1]]= r_bbb.copy()    
                r_bbb_u[:,ij_ind_b[1],ij_ind_b[0]]= -r_bbb.copy()    
 
@@ -1430,12 +1444,18 @@ def define_H(direct_adc,t_amp):
                r_bab = r_bab.reshape(nvir_b,nocc_a,nocc_b)
                r_aba = r_aba.reshape(nvir_a,nocc_b,nocc_a)
 
-               temp = np.zeros_like(r_bab,dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   temp = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp = np.zeros_like(r_bab)
                temp = np.einsum('jlab,ajk->blk',t2_1_a,r_aaa_u,optimize=True)
                temp -= np.einsum('jlab,ajk->blk',t2_1_ab,r_bab,optimize=True)
 
 
-               temp_1 = np.zeros_like(r_bab,dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   temp_1 = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp_1 = np.zeros_like(r_bab)
                temp_1 = np.einsum('jlab,ajk->blk',t2_1_ab,r_aaa_u,optimize=True)
                temp_1 -= np.einsum('jlab,ajk->blk',t2_1_b,r_bab,optimize=True)
                
@@ -1447,12 +1467,18 @@ def define_H(direct_adc,t_amp):
                s[s_a:f_a] += 0.5*np.einsum('blk,ilbk->i',temp_2,v2e_oovo_ab,optimize=True)
 
 
-               temp = np.zeros_like(r_aba,dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   temp = np.zeros_like(r_aba,dtype=complex)
+               else:
+                   temp = np.zeros_like(r_aba)
                temp = np.einsum('jlab,ajk->blk',t2_1_b,r_bbb_u,optimize=True)
                temp -= np.einsum('jlab,ajk->blk',t2_1_ab,r_aba,optimize=True)
 
 
-               temp_1 = np.zeros_like(r_aba,dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   temp_1 = np.zeros_like(r_aba,dtype=complex)
+               else:
+                   temp_1 = np.zeros_like(r_aba)
                temp_1 = np.einsum('jlab,ajk->blk',t2_1_ab,r_bbb_u,optimize=True)
                temp_1 -= np.einsum('jlab,ajk->blk',t2_1_a,r_aba,optimize=True)
                
@@ -1463,11 +1489,17 @@ def define_H(direct_adc,t_amp):
                s[s_b:f_b] += 0.5*np.einsum('blk,ilkb->i',temp_1,v2e_ooov_ab,optimize=True)
                s[s_b:f_b] += 0.5*np.einsum('blk,ilbk->i',temp_2,v2e_oovo_ab,optimize=True)
 
-               temp = np.zeros_like(r_bab,dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   temp = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp = np.zeros_like(r_bab)
                temp = -np.einsum('klab,akj->blj',t2_1_a,r_aaa_u,optimize=True)
                temp += np.einsum('klab,akj->blj',t2_1_ab,r_bab,optimize=True)
                
-               temp_1 = np.zeros_like(r_bab,dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   temp_1 = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp_1 = np.zeros_like(r_bab)
                temp_1 = -np.einsum('klab,akj->blj',t2_1_ab,r_aaa_u,optimize=True)
                temp_1 += np.einsum('klab,akj->blj',t2_1_b,r_bab,optimize=True)
 
@@ -1478,11 +1510,17 @@ def define_H(direct_adc,t_amp):
                s[s_a:f_a] -= 0.5*np.einsum('blj,ilbj->i',temp_2,v2e_oovo_ab,optimize=True)
 
 
-               temp = np.zeros_like(r_aba,dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   temp = np.zeros_like(r_aba,dtype=complex)
+               else:
+                   temp = np.zeros_like(r_aba)
                temp = -np.einsum('klab,akj->blj',t2_1_b,r_bbb_u,optimize=True)
                temp += np.einsum('klab,akj->blj',t2_1_ab,r_aba,optimize=True)
                
-               temp_1 = np.zeros_like(r_bab,dtype=complex)
+               if direct_adc.algorithm == "dynamical":
+                   temp_1 = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp_1 = np.zeros_like(r_bab)
                temp_1 = -np.einsum('klab,akj->blj',t2_1_ab,r_bbb_u,optimize=True)
                temp_1 += np.einsum('klab,akj->blj',t2_1_a,r_aba,optimize=True)
 
@@ -1588,7 +1626,7 @@ def define_H(direct_adc,t_amp):
                temp = s[s_aba:f_aba].reshape(nvir_a,nocc_b,nocc_a).transpose(0,2,1)
                s[s_aba:f_aba] = temp.reshape(-1)
 
-               s *= -1.0
+        s *= -1.0
 
         if direct_adc.algorithm == "cvs":
             s = cvs_projector(direct_adc, s)
@@ -1845,14 +1883,12 @@ def cvs_projector(direct_adc, r):
 
     Pr[s_aba:f_aba] = temp.reshape(-1).copy()
 
-
     temp = np.zeros((nvir_b, nocc_b, nocc_b))
-    temp[:,ij_a[0],ij_a[1]] = Pr[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
-    temp[:,ij_a[1],ij_a[0]] = -Pr[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
+    temp[:,ij_b[0],ij_b[1]] = Pr[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
+    temp[:,ij_b[1],ij_b[0]] = -Pr[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
 
     temp[:,ncore:,ncore:] = 0.0
     temp[:,:ncore,:ncore] = 0.0
-
 
     Pr[s_bbb:f_bbb] = temp[:,ij_b[0],ij_b[1]].reshape(-1).copy()
     

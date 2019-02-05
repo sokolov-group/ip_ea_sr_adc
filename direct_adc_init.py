@@ -46,19 +46,14 @@ class DirectADC:
 
         # Davidson and CVS specific variables
         self.n_core = 1 # number of core spatial orbitals
-
-
+        self.verbose = 6 
+        self.max_cycle = 150
+        self.max_space = 12
 
         # Integral transformation
         h1e_ao = mf.get_hcore()
         self.h1e_a = reduce(np.dot, (self.mo_a.T, h1e_ao, self.mo_a))
         self.h1e_b = reduce(np.dot, (self.mo_b.T, h1e_ao, self.mo_b))
-
-
-        self.verbose = 6 
-        self.max_cycle = 150
-        self.max_space = 12
-        self.add = None
 
         self.davidson = pyscf.lib.linalg_helper.davidson
 
