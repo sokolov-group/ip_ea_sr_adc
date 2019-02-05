@@ -93,7 +93,7 @@ def conventional(direct_adc):
     # Compute the sigma vector,preconditioner and guess vector
     apply_H, precond, x0 = setup_davidsdon(direct_adc, t_amp)
 
-    E, U = direct_adc.davidson(apply_H, x0, precond, nroots = direct_adc.nstates, verbose = 6, max_cycle=150, max_space=12)
+    E, U = direct_adc.davidson(apply_H, x0, precond, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space,direct_adc.add=None)
 
     print ("\n%s excitation energies (a.u.):" % (direct_adc.method))
     print (E.reshape(-1, 1))
@@ -1104,13 +1104,61 @@ def define_H(direct_adc,t_amp):
 
     precond[s_a:f_a] = M_ij_a_diag.copy()
     precond[s_b:f_b] = M_ij_b_diag.copy()
-    
+
+
     # Compute precond in 2p1h-2p1h block
   
     precond[s_aaa:f_aaa] = D_aij_a
     precond[s_bab:f_bab] = D_aij_bab
     precond[s_aba:f_aba] = D_aij_aba
     precond[s_bbb:f_bbb] = D_aij_b
+
+
+    # cvs
+
+
+    
+    if direct_adc.add == "CVS"
+
+        precond[(s_a+ncore):f_a] += 1e-6
+        precond[(s_b+ncore):f_b] += 1e-6
+
+        temp = np.zeros((nvir_a, nocc_a, nocc_a))
+        temp[:,ij_a[0],ij_a[1]] = precond[s_aaa:f_aaa].reshape(nvir_a,-1).copy()
+        temp[:,ij_a[1],ij_a[0]] = -precond[s_aaa:f_aaa].reshape(nvir_a,-1).copy()
+
+        temp[:,ncore:,ncore:] += 1e-6
+        temp[:,:ncore,:ncore] += 1e-6
+
+        Pr[s_aaa:f_aaa] = temp[:,ij_a[0],ij_a[1]].reshape(-1).copy()
+
+        temp = precond[s_bab:f_bab].copy()
+        temp = temp.reshape((nvir_b, nocc_a, nocc_b))
+        temp[:,ncore:,ncore:] += 1e-6
+        temp[:,:ncore,:ncore] += 1e-6
+
+        precond[s_bab:f_bab] = temp.reshape(-1).copy()
+
+        temp = precond[s_aba:f_aba].copy()
+        temp = temp.reshape((nvir_a, nocc_b, nocc_a))
+        temp[:,ncore:,ncore:] += 1e-6
+        temp[:,:ncore,:ncore] += 1e-6
+
+        precond[s_aba:f_aba] = temp.reshape(-1).copy()
+
+
+        temp = np.zeros((nvir_b, nocc_b, nocc_b))
+        temp[:,ij_a[0],ij_a[1]] = precond[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
+        temp[:,ij_a[1],ij_a[0]] = -precond[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
+
+        temp[:,ncore:,ncore:] += 1e-6
+        temp[:,:ncore,:ncore] += 1e-6
+
+
+        precond[s_bbb:f_bbb] = temp[:,ij_b[0],ij_b[1]].reshape(-1).copy()
+
+
+
 
     def sigma_(r):
 
@@ -1783,4 +1831,29 @@ def cvs_projector(direct_adc, r):
 
     Pr[s_aaa:f_aaa] = temp[:,ij_a[0],ij_a[1]].reshape(-1).copy()
 
+    temp = Pr[s_bab:f_bab].copy()
+    temp = temp.reshape((nvir_b, nocc_a, nocc_b))
+    temp[:,ncore:,ncore:] = 0.0
+    temp[:,:ncore,:ncore] = 0.0
+
+    Pr[s_bab:f_bab] = temp.reshape(-1).copy()
+
+    temp = Pr[s_aba:f_aba].copy()
+    temp = temp.reshape((nvir_a, nocc_b, nocc_a))
+    temp[:,ncore:,ncore:] = 0.0
+    temp[:,:ncore,:ncore] = 0.0
+
+    Pr[s_aba:f_aba] = temp.reshape(-1).copy()
+
+
+    temp = np.zeros((nvir_b, nocc_b, nocc_b))
+    temp[:,ij_a[0],ij_a[1]] = Pr[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
+    temp[:,ij_a[1],ij_a[0]] = -Pr[s_bbb:f_bbb].reshape(nvir_b,-1).copy()
+
+    temp[:,ncore:,ncore:] = 0.0
+    temp[:,:ncore,:ncore] = 0.0
+
+
+    Pr[s_bbb:f_bbb] = temp[:,ij_b[0],ij_b[1]].reshape(-1).copy()
+    
     return Pr
