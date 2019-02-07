@@ -48,7 +48,7 @@ def kernel(direct_adc):
     # Compute Green's functions directly
     dos = calc_density_of_states(direct_adc, apply_H,precond,t_amp)
 
-    np.savetxt('density_of_states_Zn_2s.txt', dos, fmt='%.8f')
+    np.savetxt('density_of_states_Zn_2p.txt', dos, fmt='%.8f')
 
     #print ("Computation successfully finished")
     #print ("Total time:", (time.time() - t_start, "sec"))
