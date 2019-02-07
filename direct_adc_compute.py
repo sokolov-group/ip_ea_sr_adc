@@ -43,7 +43,7 @@ def kernel(direct_adc):
     print ("MP2 total energy:        ", (direct_adc.e_scf + e_mp2), "\n")
 
     # Compute the sigma vector,preconditioner and guess vector
-    apply_H, precond = define_H(direct_adc,t_amp)
+    apply_H, precond, M_ij = define_H(direct_adc,t_amp)
 
     # Compute Green's functions directly
     dos = calc_density_of_states(direct_adc, apply_H,precond,t_amp)
@@ -1633,9 +1633,11 @@ def define_H(direct_adc,t_amp):
 
         return s
 
-    precond *= -1.0
-    
-    return sigma_, precond
+    precond_ = -precond.copy()
+    M_ij_a_ = -M_ij_a.copy()
+    M_ij_b_ = -M_ij_b.copy()
+
+    return sigma_, precond_, (M_ij_a_, M_ij_b_)
 
 
 def calculate_GF(direct_adc,apply_H,precond,omega,orb,T):
@@ -1795,8 +1797,9 @@ def setup_davidsdon(direct_adc, t_amp):
     apply_H = None
     precond = None
 
-    apply_H, precond = define_H(direct_adc, t_amp)
+    apply_H, precond, M_ij = define_H(direct_adc, t_amp)
 
+#    x0 = compute_guess_vectors_M(direct_adc, precond, M_ij)
     x0 = compute_guess_vectors(direct_adc, precond)
 
     return apply_H, precond, x0
@@ -1822,6 +1825,41 @@ def compute_guess_vectors(direct_adc, precond, ascending = True):
         x0s.append(x0[:,p])
 
     return x0s
+
+
+def compute_guess_vectors_M(direct_adc, precond, M, ascending = True):
+
+    h0_dim_a = M[0].shape[0]
+    h0_dim_b = M[1].shape[0]
+
+    dim = precond.shape[0]
+
+    evals_a, evecs_a = np.linalg.eigh(M[0])
+    evals_b, evecs_b = np.linalg.eigh(M[1])
+
+    precond_ = precond.copy()
+    precond_[:h0_dim_a] = evals_a.copy()
+    precond_[h0_dim_a:(h0_dim_a + h0_dim_b)] = evals_b.copy()
+
+    sort_ind = None
+    if ascending:
+        sort_ind = np.argsort(precond_)
+    else:
+        sort_ind = np.argsort(precond_)[::-1]
+
+    x0 = []
+    for p in range(direct_adc.nstates):
+        temp = np.zeros(dim)
+        if sort_ind[p] < h0_dim_a:
+            temp[:h0_dim_a] = evecs_a[:,sort_ind[p]].copy()
+        elif h0_dim_a <= sort_ind[p] and sort_ind[p] < (h0_dim_a + h0_dim_b):
+            temp[h0_dim_a:(h0_dim_a + h0_dim_b)] = evecs_b[:,sort_ind[p] - h0_dim_a].copy()
+        else:
+            temp[sort_ind[p]] = 1.0
+        x0.append(temp)
+
+    return x0
+
 
 def cvs_projector(direct_adc, r):
 
