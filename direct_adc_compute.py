@@ -48,7 +48,7 @@ def kernel(direct_adc):
     # Compute Green's functions directly
     dos = calc_density_of_states(direct_adc, apply_H,precond,t_amp)
 
-    np.savetxt('density_of_states.txt', dos, fmt='%.8f')
+    np.savetxt('density_of_states_Zn_2s.txt', dos, fmt='%.8f')
 
     #print ("Computation successfully finished")
     #print ("Total time:", (time.time() - t_start, "sec"))
@@ -429,6 +429,7 @@ def compute_mp2_energy(direct_adc, t_amp):
 def calc_density_of_states(direct_adc,apply_H,precond,t_amp):
 
 	nmo = direct_adc.nmo
+	nocc_a = direct_adc.nocc_a
 	freq_range = direct_adc.freq_range	
 	broadening = direct_adc.broadening
 	step = direct_adc.step
@@ -1422,7 +1423,6 @@ def define_H(direct_adc,t_amp):
                temp_1 = np.einsum('jkbc,ajk->abc',t2_1_ab,r_aba)
 
                s[s_b:f_b] -= np.einsum('abc,bcia->i',temp_1, v2e_vvov_ab, optimize=True)
-               
 
 
                if direct_adc.algorithm == "dynamical":
