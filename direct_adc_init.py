@@ -45,7 +45,7 @@ class DirectADC:
         self.algorithm = "dynamical" # dynamical vs conventional vs cvs
 
         # Davidson and CVS specific variables
-        self.n_core = 6 # number of core spatial orbitals
+        self.n_core = 2 # number of core spatial orbitals
         self.verbose = 6 
         self.max_cycle = 150
         self.max_space = 12
