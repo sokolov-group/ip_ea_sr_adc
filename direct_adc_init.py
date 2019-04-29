@@ -45,7 +45,7 @@ class DirectADC:
         self.algorithm = "dynamical" # dynamical vs conventional vs cvs
 
         # Davidson and CVS specific variables
-        self.n_core = 2 # number of core spatial orbitals
+        self.n_core = 6 # number of core spatial orbitals
         self.verbose = 6 
         self.max_cycle = 150
         self.max_space = 12
@@ -102,6 +102,8 @@ class DirectADC:
             direct_adc_compute.kernel(self)
         elif self.algorithm == "conventional" or self.algorithm == "cvs":
             direct_adc_compute.conventional(self)
+        elif self.algorithm == "mom_conventional":
+            direct_adc_compute.mom_conventional(self)
         else:
             raise Exception("Algorithm is not recognized")
 

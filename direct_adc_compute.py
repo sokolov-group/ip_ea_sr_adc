@@ -4,7 +4,7 @@ import time
 from functools import reduce
 
 ###########################################
-# Computing direct IP-ADC #
+# Computing dynamical IP-ADC #
 ########################################### 
 
 def kernel(direct_adc):
@@ -110,6 +110,72 @@ def conventional(direct_adc):
 
     print ("Computation successfully finished")
     print ("Total time:", (time.time() - t_start, "sec"))
+
+
+###########################################
+# Computing MOM-conventional IP-ADC #
+########################################### 
+
+def mom_conventional(direct_adc):
+
+    if (direct_adc.method != "adc(2)" and direct_adc.method != "adc(3)" and direct_adc.method != "adc(2)-e"):
+        raise Exception("Method is unknown")
+
+    np.set_printoptions(linewidth=150, edgeitems=10,threshold=100000, suppress=True)
+
+    print ("\nStarting spin-orbital direct ADC code..\n")
+    print ("Number of electrons:               ", direct_adc.nelec)
+    print ("Number of alpha electrons:         ", direct_adc.nelec_a)
+    print ("Number of beta electrons:          ", direct_adc.nelec_b)
+    print ("Number of basis functions:         ", direct_adc.nmo)
+    print ("Number of alpha occupied orbitals: ", direct_adc.nocc_a)
+    print ("Number of beta occupied orbitals:  ", direct_adc.nocc_b)
+    print ("Number of alpha virtual orbitals:  ", direct_adc.nvir_a)
+    print ("Number of beta virtual orbitals:   ", direct_adc.nvir_b)
+    print ("Number of states:                  ", direct_adc.nstates)
+    print ("Nuclear repulsion energy:          ", direct_adc.enuc,"\n")
+    
+    print ("SCF orbital energies(alpha):\n", direct_adc.mo_energy_a, "\n")
+    print ("SCF orbital energies(beta):\n", direct_adc.mo_energy_b, "\n")
+
+    t_start = time.time()
+
+    # Compute amplitudes
+    t_amp = compute_amplitudes(direct_adc)
+    
+    # Compute MP2 energy
+    e_mp2 = compute_mp2_energy(direct_adc, t_amp)
+     
+    print ("MP2 correlation energy:  ", e_mp2)
+    print ("MP2 total energy:        ", (direct_adc.e_scf + e_mp2), "\n")
+
+    # Compute the sigma vector,preconditioner and guess vector
+    apply_H, precond, x0 = setup_davidsdon(direct_adc, t_amp)
+
+    # Run CVS-Davidson calculations
+    E_cvs, U_cvs = direct_adc.davidson(apply_H, x0, precond, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space)
+    
+    #Compute function for filtering states
+    nroots = direct_adc.nstates
+    U_cvs = np.array(U_cvs)
+    pick_mom_states = filter_states(direct_adc, U_cvs, apply_H, nroots) 
+
+    
+    # Compute ionization energies using Davidson
+    direct_adc.algorithm = "conventional"
+    E, U = direct_adc.davidson(apply_H, U_cvs, precond, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space, pick = pick_mom_states)
+    index = E.argsort()   
+ 
+    print ("\n%s ionization energies (a.u.):" % (direct_adc.method))
+    print (E[index].reshape(-1, 1))
+    print ("\n%s ionization energies (eV):" % (direct_adc.method))
+    E_ev = E * 27.2114
+    print (E_ev[index].reshape(-1, 1))
+
+
+    print ("Computation successfully finished")
+    print ("Total time:", (time.time() - t_start, "sec"))
+
 
 ###########################################
 # Calculate t-amplitudes  #
@@ -1075,7 +1141,7 @@ def define_H(direct_adc,t_amp):
 
     # Compute preconditioner for CVS
 
-    if direct_adc.algorithm == "cvs":
+    if direct_adc.algorithm == "cvs" or direct_adc.algorithm == "mom_conventional":
 
         shift = -100000.0
         ncore = direct_adc.n_core
@@ -1119,7 +1185,7 @@ def define_H(direct_adc,t_amp):
 
     def sigma_(r):
 
-        if direct_adc.algorithm == "cvs":
+        if direct_adc.algorithm == "cvs" or direct_adc.algorithm == "mom_conventional":
             r = cvs_projector(direct_adc, r)
 
         s = None
@@ -1504,7 +1570,7 @@ def define_H(direct_adc,t_amp):
 
         s *= -1.0
 
-        if direct_adc.algorithm == "cvs":
+        if direct_adc.algorithm == "cvs" or direct_adc.algorithm == "mom_conventional":
             s = cvs_projector(direct_adc, s)
 
         return s
@@ -1739,3 +1805,28 @@ def cvs_projector(direct_adc, r):
     Pr[s_bbb:f_bbb] = temp[:,ij_b[0],ij_b[1]].reshape(-1).copy()
     
     return Pr
+
+def filter_states(direct_adc, U_cvs, apply_H, nroots):
+
+    def pick_mom(w,v,nroots,local_var):
+       
+       # Compute overlap between v_cvs and v
+       #for i in local_var:
+       #    print (i)
+       x_full = np.array(local_var['xs'])
+       v_full_old = None
+       vlast = local_var['vlast']
+       if vlast is None:
+           v_full_old = U_cvs.copy()
+       else:
+           v_full_old = np.dot(vlast.T, x_full[:vlast.shape[0],:])
+       v_full = np.dot(x_full.T,v)
+       S = np.absolute(np.dot(v_full_old,v_full))
+       P = S.sum(axis=0)
+       idx = (-P).argsort()[:nroots]
+#       U_cvs = v_full.T[idx,:].copy()
+       print (P)
+       print (P[idx])
+       return w[idx], v[:,idx], idx
+    return pick_mom   
+ 
