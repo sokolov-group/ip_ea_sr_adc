@@ -44,6 +44,11 @@ class DirectADC:
         self.method = "adc(3)"
         self.algorithm = "dynamical" # dynamical vs conventional vs cvs
 
+        # IP or EA flags
+
+        self.EA = True
+        self.IP = True
+
         # Davidson and CVS specific variables
         self.n_core = 6 # number of core spatial orbitals
         self.verbose = 6 
