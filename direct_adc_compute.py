@@ -2620,12 +2620,24 @@ def define_H_ea(direct_adc,t_amp):
 
                s[s_aba:f_aba] -= temp_1.reshape(-1)
 
-        s *= -1.0
+        if (direct_adc.algorithm == "dynamical"):
+            s *= -1.0  
+
         return s
 
-    precond_ = -precond.copy()
-    M_ab_a_ = -M_ab_a.copy()
-    M_ab_b_ = -M_ab_b.copy()
+
+    if (direct_adc.algorithm == "dynamical"):
+
+        precond_ = -precond.copy()
+        M_ab_a_ = -M_ab_a.copy()
+        M_ab_b_ = -M_ab_b.copy()
+
+    else :
+
+        precond_ = precond.copy()
+        M_ab_a_ = M_ab_a.copy()
+        M_ab_b_ = M_ab_b.copy()
+
 
     return sigma_,precond_,(M_ab_a_,M_ab_b_)
 
