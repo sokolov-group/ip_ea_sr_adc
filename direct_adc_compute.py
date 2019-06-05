@@ -18,7 +18,8 @@ def kernel(direct_adc):
     print ("Number of electrons:               ", direct_adc.nelec)
     print ("Number of alpha electrons:         ", direct_adc.nelec_a)
     print ("Number of beta electrons:          ", direct_adc.nelec_b)
-    print ("Number of basis functions:         ", direct_adc.nmo)
+    print ("Number of alpha basis functions:         ", direct_adc.nmo)
+    print ("Number of beta basis functions:         ", direct_adc.nmo)
     print ("Number of alpha occupied orbitals: ", direct_adc.nocc_a)
     print ("Number of beta occupied orbitals:  ", direct_adc.nocc_b)
     print ("Number of alpha virtual orbitals:  ", direct_adc.nvir_a)
@@ -95,7 +96,8 @@ def conventional(direct_adc):
     print ("Number of electrons:               ", direct_adc.nelec)
     print ("Number of alpha electrons:         ", direct_adc.nelec_a)
     print ("Number of beta electrons:          ", direct_adc.nelec_b)
-    print ("Number of basis functions:         ", direct_adc.nmo)
+    print ("Number of alpha basis functions:         ", direct_adc.nmo_a)
+    print ("Number of beta basis functions:         ", direct_adc.nmo_b)
     print ("Number of alpha occupied orbitals: ", direct_adc.nocc_a)
     print ("Number of beta occupied orbitals:  ", direct_adc.nocc_b)
     print ("Number of alpha virtual orbitals:  ", direct_adc.nvir_a)
@@ -111,11 +113,14 @@ def conventional(direct_adc):
     # Compute amplitudes
     t_amp = compute_amplitudes(direct_adc)
     
+    print ("time to calculate amplitudes:", (time.time() - t_start, "sec"))
+    
     # Compute MP2 energy
     e_mp2 = compute_mp2_energy(direct_adc, t_amp)
      
     print ("MP2 correlation energy:  ", e_mp2)
     print ("MP2 total energy:        ", (direct_adc.e_scf + e_mp2), "\n")
+
 
     # Compute the sigma vector,preconditioner and guess vector
 
@@ -130,7 +135,6 @@ def conventional(direct_adc):
     if direct_adc.EA == True:
         apply_H_ea, precond_ea, x0 = setup_davidson_ea(direct_adc, t_amp)
 
-
     # Compute ionization energies using Davidson
 
     if direct_adc.IP == True:
@@ -139,14 +143,12 @@ def conventional(direct_adc):
     if direct_adc.EA == True: 
         E_ea, U_ea = direct_adc.davidson(apply_H_ea, x0, precond_ea, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space)
 
-
     if direct_adc.IP == True:
         print ("\n%s ionization energies (a.u.):" % (direct_adc.method))
         print (E_ip.reshape(-1, 1))
         print ("\n%s ionization energies (eV):" % (direct_adc.method))
         E_ip_ev = E_ip * 27.211606
         print (E_ip_ev.reshape(-1, 1))
-
 
     if direct_adc.EA == True:
         print ("\n%s attachment energies (a.u.):" % (direct_adc.method))
@@ -157,7 +159,6 @@ def conventional(direct_adc):
 
     print ("Computation successfully finished")
     print ("Total time:", (time.time() - t_start, "sec"))
-
 
 ###########################################
 # Computing MOM-conventional IP-ADC #
@@ -189,6 +190,7 @@ def mom_conventional(direct_adc):
 
     # Compute amplitudes
     t_amp = compute_amplitudes(direct_adc)
+
     
     # Compute MP2 energy
     e_mp2 = compute_mp2_energy(direct_adc, t_amp)
@@ -251,6 +253,9 @@ def compute_amplitudes(direct_adc):
     v2e_vvov_a,v2e_vvov_ab,v2e_vvov_b  = direct_adc.v2e.vvov
     v2e_vooo_a,v2e_vooo_ab,v2e_vooo_b  = direct_adc.v2e.vooo
     v2e_ovoo_a,v2e_ovoo_ab,v2e_ovoo_b  = direct_adc.v2e.ovoo
+    v2e_ovvv_a,v2e_ovvv_ab,v2e_ovvv_b  = direct_adc.v2e.ovvv
+    v2e_oovo_a,v2e_oovo_ab,v2e_oovo_b  = direct_adc.v2e.oovo
+    v2e_ovvo_a,v2e_ovvo_ab,v2e_ovvo_b  = direct_adc.v2e.ovvo
 
     e_a = direct_adc.mo_energy_a
     e_b = direct_adc.mo_energy_b
@@ -293,9 +298,9 @@ def compute_amplitudes(direct_adc):
     t1_2_b = 0.5*np.einsum('akcd,ikcd->ia',v2e_vovv_b,t2_1_b)
     t1_2_b -= 0.5*np.einsum('klic,klac->ia',v2e_ooov_b,t2_1_b)
     
-    t1_2_b += np.einsum('akcd,ikcd->ia',v2e_vovv_ab,t2_1_ab)
-    t1_2_b -= np.einsum('klic,klac->ia',v2e_ooov_ab,t2_1_ab)
-    
+    t1_2_b += np.einsum('kadc,kidc->ia',v2e_ovvv_ab,t2_1_ab)
+    t1_2_b -= np.einsum('lkci,lkca->ia',v2e_oovo_ab,t2_1_ab)
+
     t1_2_a = t1_2_a/D1_a
     t1_2_b = t1_2_b/D1_b
 
@@ -311,7 +316,7 @@ def compute_amplitudes(direct_adc):
         t2_2_a += 0.5*np.einsum('klij,klab->ijab',v2e_oooo_a,t2_1_a)
                  
         temp = np.einsum('bkjc,kica->ijab',v2e_voov_a,t2_1_a) 
-        temp_1 = np.einsum('bkjc,kica->ijab',v2e_voov_ab,t2_1_ab) 
+        temp_1 = np.einsum('bkjc,ikac->ijab',v2e_voov_ab,t2_1_ab) 
         
         t2_2_a += temp - temp.transpose(1,0,2,3) - temp.transpose(0,1,3,2) + temp.transpose(1,0,3,2)
         t2_2_a += temp_1 - temp_1.transpose(1,0,2,3) - temp_1.transpose(0,1,3,2) + temp_1.transpose(1,0,3,2)
@@ -320,7 +325,7 @@ def compute_amplitudes(direct_adc):
         t2_2_b += 0.5*np.einsum('klij,klab->ijab',v2e_oooo_b,t2_1_b)
 
         temp = np.einsum('bkjc,kica->ijab',v2e_voov_b,t2_1_b) 
-        temp_1 = np.einsum('bkjc,kica->ijab',v2e_voov_ab,t2_1_ab) 
+        temp_1 = np.einsum('kbcj,kica->ijab',v2e_ovvo_ab,t2_1_ab) 
         
         t2_2_b += temp - temp.transpose(1,0,2,3) - temp.transpose(0,1,3,2) + temp.transpose(1,0,3,2)
         t2_2_b += temp_1 - temp_1.transpose(1,0,2,3) - temp_1.transpose(0,1,3,2) + temp_1.transpose(1,0,3,2)
@@ -328,8 +333,8 @@ def compute_amplitudes(direct_adc):
         t2_2_ab = np.einsum('abcd,ijcd->ijab',v2e_vvvv_ab,t2_1_ab)
         t2_2_ab += np.einsum('klij,klab->ijab',v2e_oooo_ab,t2_1_ab)
         
-        t2_2_ab += np.einsum('bkjc,kica->ijab',v2e_voov_ab,t2_1_a) 
-        t2_2_ab += np.einsum('bkjc,kica->ijab',v2e_voov_b,t2_1_ab) 
+        t2_2_ab += np.einsum('kbcj,kica->ijab',v2e_ovvo_ab,t2_1_a) 
+        t2_2_ab += np.einsum('bkjc,ikac->ijab',v2e_voov_b,t2_1_ab) 
         
         t2_2_ab -= np.einsum('kbic,kjac->ijab',v2e_ovov_ab,t2_1_ab) 
         
@@ -354,49 +359,51 @@ def compute_amplitudes(direct_adc):
         t1_3_a += np.einsum('d,ilad,ld->ia',e_b[nocc_b:],t2_1_ab,t1_2_b,optimize=True)
         
         t1_3_b  = np.einsum('d,ilad,ld->ia',e_b[nocc_b:],t2_1_b, t1_2_b,optimize=True)
-        t1_3_b += np.einsum('d,ilad,ld->ia',e_a[nocc_a:],t2_1_ab,t1_2_a,optimize=True)
+        t1_3_b += np.einsum('d,lida,ld->ia',e_a[nocc_a:],t2_1_ab,t1_2_a,optimize=True)
         
         t1_3_a -= np.einsum('l,ilad,ld->ia',e_a[:nocc_a],t2_1_a, t1_2_a,optimize=True)
         t1_3_a -= np.einsum('l,ilad,ld->ia',e_b[:nocc_b],t2_1_ab,t1_2_b,optimize=True)
         
         t1_3_b -= np.einsum('l,ilad,ld->ia',e_b[:nocc_b],t2_1_b, t1_2_b,optimize=True)
-        t1_3_b -= np.einsum('l,ilad,ld->ia',e_a[:nocc_a],t2_1_ab,t1_2_a,optimize=True)
+        t1_3_b -= np.einsum('l,lida,ld->ia',e_a[:nocc_a],t2_1_ab,t1_2_a,optimize=True)
 
         t1_3_a += 0.5*np.einsum('a,ilad,ld->ia',e_a[nocc_a:],t2_1_a, t1_2_a,optimize=True)
         t1_3_a += 0.5*np.einsum('a,ilad,ld->ia',e_a[nocc_a:],t2_1_ab,t1_2_b,optimize=True)
         
         t1_3_b += 0.5*np.einsum('a,ilad,ld->ia',e_b[nocc_b:],t2_1_b, t1_2_b,optimize=True)
-        t1_3_b += 0.5*np.einsum('a,ilad,ld->ia',e_b[nocc_b:],t2_1_ab,t1_2_a,optimize=True)
+        t1_3_b += 0.5*np.einsum('a,lida,ld->ia',e_b[nocc_b:],t2_1_ab,t1_2_a,optimize=True)
 
         t1_3_a -= 0.5*np.einsum('i,ilad,ld->ia',e_a[:nocc_a],t2_1_a, t1_2_a,optimize=True)
         t1_3_a -= 0.5*np.einsum('i,ilad,ld->ia',e_a[:nocc_a],t2_1_ab,t1_2_b,optimize=True)
         
         t1_3_b -= 0.5*np.einsum('i,ilad,ld->ia',e_b[:nocc_b],t2_1_b, t1_2_b,optimize=True)
-        t1_3_b -= 0.5*np.einsum('i,ilad,ld->ia',e_b[:nocc_b],t2_1_ab,t1_2_a,optimize=True)
+        t1_3_b -= 0.5*np.einsum('i,lida,ld->ia',e_b[:nocc_b],t2_1_ab,t1_2_a,optimize=True)
 
         t1_3_a += np.einsum('ld,adil->ia',t1_2_a,v2e_vvoo_a ,optimize=True)
         t1_3_a += np.einsum('ld,adil->ia',t1_2_b,v2e_vvoo_ab,optimize=True)
         
         t1_3_b += np.einsum('ld,adil->ia',t1_2_b,v2e_vvoo_b ,optimize=True)
-        t1_3_b += np.einsum('ld,adil->ia',t1_2_a,v2e_vvoo_ab,optimize=True)
+        t1_3_b += np.einsum('ld,dali->ia',t1_2_a,v2e_vvoo_ab,optimize=True)
 
         t1_3_a += np.einsum('ld,alid->ia',t1_2_a,v2e_voov_a ,optimize=True)
         t1_3_a += np.einsum('ld,alid->ia',t1_2_b,v2e_voov_ab,optimize=True)
 
         t1_3_b += np.einsum('ld,alid->ia',t1_2_b,v2e_voov_b ,optimize=True)
-        t1_3_b += np.einsum('ld,alid->ia',t1_2_a,v2e_voov_ab,optimize=True)
+        t1_3_b += np.einsum('ld,ladi->ia',t1_2_a,v2e_ovvo_ab,optimize=True)
 
         t1_3_a -= 0.5*np.einsum('lmad,lmid->ia',t2_2_a,v2e_ooov_a,optimize=True)
         t1_3_a -=     np.einsum('lmad,lmid->ia',t2_2_ab,v2e_ooov_ab,optimize=True)
         
         t1_3_b -= 0.5*np.einsum('lmad,lmid->ia',t2_2_b,v2e_ooov_b,optimize=True)
-        t1_3_b -=     np.einsum('lmad,lmid->ia',t2_2_ab,v2e_ooov_ab,optimize=True)
+        #t1_3_b -=     np.einsum('lmad,lmid->ia',t2_2_ab,v2e_ooov_ab,optimize=True)
+        t1_3_b -=     np.einsum('mlda,mldi->ia',t2_2_ab,v2e_oovo_ab,optimize=True)
 
         t1_3_a += 0.5*np.einsum('ilde,alde->ia',t2_2_a,v2e_vovv_a,optimize=True)
         t1_3_a += np.einsum('ilde,alde->ia',t2_2_ab,v2e_vovv_ab,optimize=True)
         
         t1_3_b += 0.5*np.einsum('ilde,alde->ia',t2_2_b,v2e_vovv_b,optimize=True)
-        t1_3_b += np.einsum('ilde,alde->ia',t2_2_ab,v2e_vovv_ab,optimize=True)
+        #t1_3_b += np.einsum('ilde,alde->ia',t2_2_ab,v2e_vovv_ab,optimize=True)
+        t1_3_b += np.einsum('lied,laed->ia',t2_2_ab,v2e_ovvv_ab,optimize=True)
 
         t1_3_a -= np.einsum('ildf,aefm,lmde->ia',t2_1_a,v2e_vvvo_a,  t2_1_a ,optimize=True)
         t1_3_a += np.einsum('ilfd,aefm,mled->ia',t2_1_ab,v2e_vvvo_a, t2_1_ab,optimize=True)
@@ -405,9 +412,10 @@ def compute_amplitudes(direct_adc):
         t1_3_a -= np.einsum('ildf,aemf,mlde->ia',t2_1_ab,v2e_vvov_ab,t2_1_ab,optimize=True)
 
         t1_3_b -= np.einsum('ildf,aefm,lmde->ia',t2_1_b,v2e_vvvo_b,t2_1_b,optimize=True)
-        t1_3_b += np.einsum('ilfd,aefm,mled->ia',t2_1_ab,v2e_vvvo_b,t2_1_ab,optimize=True)
-        t1_3_b -= np.einsum('ildf,aefm,lmde->ia',t2_1_b,v2e_vvvo_ab,t2_1_ab,optimize=True)
-        t1_3_b += np.einsum('ilfd,aefm,lmde->ia',t2_1_ab,v2e_vvvo_ab,t2_1_b,optimize=True)
+        #t1_3_b += np.einsum('ilfd,aefm,mled->ia',t2_1_ab,v2e_vvvo_b,t2_1_ab,optimize=True)
+        t1_3_b += np.einsum('lidf,aefm,lmde->ia',t2_1_ab,v2e_vvvo_b,t2_1_ab,optimize=True)
+        t1_3_b -= np.einsum('ildf,eamf,mled->ia',t2_1_b,v2e_vvov_ab,t2_1_ab,optimize=True)
+        t1_3_b += np.einsum('lidf,eamf,lmde->ia',t2_1_ab,v2e_vvov_ab,t2_1_a,optimize=True)
         t1_3_b -= np.einsum('ildf,aemf,mlde->ia',t2_1_ab,v2e_vvov_ab,t2_1_ab,optimize=True)
 
         t1_3_a += 0.5*np.einsum('ilaf,defm,lmde->ia',t2_1_a,v2e_vvvo_a,t2_1_a,optimize=True)
@@ -1123,43 +1131,43 @@ def get_Mij(direct_adc,t_amp):
     
     M_ij_b +=  np.einsum('d,ilde,jlde->ij',e_vir_b,t2_1_b, t2_1_b)
     M_ij_b +=  np.einsum('d,lide,ljde->ij',e_vir_a,t2_1_ab, t2_1_ab)
-    M_ij_b +=  np.einsum('d,ilde,jlde->ij',e_vir_b,t2_1_ab, t2_1_ab)
+    M_ij_b +=  np.einsum('d,lied,ljed->ij',e_vir_b,t2_1_ab, t2_1_ab)
 
     M_ij_a -= 0.5 *  np.einsum('l,ilde,jlde->ij',e_occ_a,t2_1_a, t2_1_a)
     M_ij_a -= 0.5*np.einsum('l,ilde,jlde->ij',e_occ_b,t2_1_ab, t2_1_ab)
     M_ij_a -= 0.5*np.einsum('l,ilde,jlde->ij',e_occ_b,t2_1_ab, t2_1_ab)
 
     M_ij_b -= 0.5 *  np.einsum('l,ilde,jlde->ij',e_occ_b,t2_1_b, t2_1_b)
-    M_ij_b -= 0.5*np.einsum('l,ilde,jlde->ij',e_occ_a,t2_1_ab, t2_1_ab)
-    M_ij_b -= 0.5*np.einsum('l,ilde,jlde->ij',e_occ_a,t2_1_ab, t2_1_ab)
+    M_ij_b -= 0.5*np.einsum('l,lide,ljde->ij',e_occ_a,t2_1_ab, t2_1_ab)
+    M_ij_b -= 0.5*np.einsum('l,lied,ljed->ij',e_occ_a,t2_1_ab, t2_1_ab)
 
     M_ij_a -= 0.25 *  np.einsum('i,ilde,jlde->ij',e_occ_a,t2_1_a, t2_1_a)
     M_ij_a -= 0.25 *  np.einsum('i,ilde,jlde->ij',e_occ_a,t2_1_ab, t2_1_ab)
     M_ij_a -= 0.25 *  np.einsum('i,ilde,jlde->ij',e_occ_a,t2_1_ab, t2_1_ab)
 
     M_ij_b -= 0.25 *  np.einsum('i,ilde,jlde->ij',e_occ_b,t2_1_b, t2_1_b)
-    M_ij_b -= 0.25 *  np.einsum('i,ilde,jlde->ij',e_occ_b,t2_1_ab, t2_1_ab)
-    M_ij_b -= 0.25 *  np.einsum('i,ilde,jlde->ij',e_occ_b,t2_1_ab, t2_1_ab)
+    M_ij_b -= 0.25 *  np.einsum('i,lied,ljed->ij',e_occ_b,t2_1_ab, t2_1_ab)
+    M_ij_b -= 0.25 *  np.einsum('i,lide,ljde->ij',e_occ_b,t2_1_ab, t2_1_ab)
 
     M_ij_a -= 0.25 *  np.einsum('j,ilde,jlde->ij',e_occ_a,t2_1_a, t2_1_a)
     M_ij_a -= 0.25 *  np.einsum('j,ilde,jlde->ij',e_occ_a,t2_1_ab, t2_1_ab)
     M_ij_a -= 0.25 *  np.einsum('j,ilde,jlde->ij',e_occ_a,t2_1_ab, t2_1_ab)
 
     M_ij_b -= 0.25 *  np.einsum('j,ilde,jlde->ij',e_occ_b,t2_1_b, t2_1_b)
-    M_ij_b -= 0.25 *  np.einsum('j,ilde,jlde->ij',e_occ_b,t2_1_ab, t2_1_ab)
-    M_ij_b -= 0.25 *  np.einsum('j,ilde,jlde->ij',e_occ_b,t2_1_ab, t2_1_ab)
+    M_ij_b -= 0.25 *  np.einsum('j,lied,ljed->ij',e_occ_b,t2_1_ab, t2_1_ab)
+    M_ij_b -= 0.25 *  np.einsum('j,lide,ljde->ij',e_occ_b,t2_1_ab, t2_1_ab)
 
     M_ij_a += 0.5 *  np.einsum('ilde,jlde->ij',t2_1_a, v2e_oovv_a)
     M_ij_a += np.einsum('ilde,jlde->ij',t2_1_ab, v2e_oovv_ab)
 
     M_ij_b += 0.5 *  np.einsum('ilde,jlde->ij',t2_1_b, v2e_oovv_b)
-    M_ij_b += np.einsum('ilde,jlde->ij',t2_1_ab, v2e_oovv_ab)
+    M_ij_b += np.einsum('lied,ljed->ij',t2_1_ab, v2e_oovv_ab)
 
     M_ij_a += 0.5 *  np.einsum('jlde,deil->ij',t2_1_a, v2e_vvoo_a)
     M_ij_a += np.einsum('jlde,deil->ij',t2_1_ab, v2e_vvoo_ab)
 
     M_ij_b += 0.5 *  np.einsum('jlde,deil->ij',t2_1_b, v2e_vvoo_b)
-    M_ij_b += np.einsum('jlde,deil->ij',t2_1_ab, v2e_vvoo_ab)
+    M_ij_b += np.einsum('ljed,edli->ij',t2_1_ab, v2e_vvoo_ab)
 
     # Third-order terms
     
@@ -1217,7 +1225,8 @@ def get_Mij(direct_adc,t_amp):
         M_ij_a -= 0.5 *  np.einsum('l,jlde,ilde->ij',e_occ_a,t2_1_a, t2_2_a)
         M_ij_a -= 0.5*np.einsum('l,jlde,ilde->ij',e_occ_b,t2_1_ab, t2_2_ab)
         M_ij_a -= 0.5*np.einsum('l,jlde,ilde->ij',e_occ_b,t2_1_ab, t2_2_ab)
-    
+
+
         M_ij_b -= 0.5 *  np.einsum('l,jlde,ilde->ij',e_occ_b,t2_1_b, t2_2_b)
         M_ij_b -= 0.5*np.einsum('l,jlde,ilde->ij',e_occ_a,t2_1_ab, t2_2_ab)
         M_ij_b -= 0.5*np.einsum('l,jlde,ilde->ij',e_occ_a,t2_1_ab, t2_2_ab)
@@ -1388,14 +1397,15 @@ def define_H_ip(direct_adc,t_amp):
     v2e_voov_a,v2e_voov_ab,v2e_voov_b = direct_adc.v2e.voov
 
     v2e_vooo_1_a = v2e_vooo_a[:,:,ij_ind_a[0],ij_ind_a[1]].transpose(1,0,2).reshape(nocc_a,-1)
-    v2e_vooo_1_b = v2e_vooo_a[:,:,ij_ind_b[0],ij_ind_b[1]].transpose(1,0,2).reshape(nocc_a,-1)
+    v2e_vooo_1_b = v2e_vooo_b[:,:,ij_ind_b[0],ij_ind_b[1]].transpose(1,0,2).reshape(nocc_b,-1)
 
-    v2e_vooo_1_ab_a = -v2e_vooo_ab.transpose(1,0,2,3).reshape(nocc_a, -1)
+    v2e_vooo_1_ab_a = -v2e_ovoo_ab.transpose(0,1,3,2).reshape(nocc_a, -1)
     v2e_vooo_1_ab_b = -v2e_vooo_ab.transpose(1,0,2,3).reshape(nocc_b, -1)
 
     v2e_oovo_1_a = v2e_oovo_a[ij_ind_a[0],ij_ind_a[1],:,:].transpose(1,0,2)
     v2e_oovo_1_b = v2e_oovo_b[ij_ind_b[0],ij_ind_b[1],:,:].transpose(1,0,2)
-    v2e_oovo_1_ab = -v2e_oovo_ab.transpose(2,0,1,3)
+    v2e_oovo_1_ab = -v2e_ovoo_ab.transpose(1,3,2,0)
+    v2e_oovo_2_ab = -v2e_vooo_ab.transpose(0,2,3,1)
 
     d_ij_a = e_occ_a[:,None] + e_occ_a
     d_a_a = e_vir_a[:,None]
@@ -1406,15 +1416,15 @@ def define_H_ip(direct_adc,t_amp):
     d_ij_b = e_occ_b[:,None] + e_occ_b
     d_a_b = e_vir_b[:,None]
     D_n_b = -d_a_b + d_ij_b.reshape(-1)
-    D_n_b = D_n_a.reshape((nvir_b,nocc_b,nocc_b))
+    D_n_b = D_n_b.reshape((nvir_b,nocc_b,nocc_b))
     D_aij_b = D_n_b.copy()[:,ij_ind_b[0],ij_ind_b[1]].reshape(-1)
     
-    d_ij_ab = e_occ_a[:,None] + e_occ_b
+    d_ij_ab = e_occ_b[:,None] + e_occ_a
     d_a_b = e_vir_b[:,None]
     D_n_bab = -d_a_b + d_ij_ab.reshape(-1)
     D_aij_bab = D_n_bab.reshape(-1)
 
-    d_ij_ab = e_occ_b[:,None] + e_occ_a
+    d_ij_ab = e_occ_a[:,None] + e_occ_b
     d_a_a = e_vir_a[:,None]
     D_n_aba = -d_a_a + d_ij_ab.reshape(-1)
     D_aij_aba = D_n_aba.reshape(-1)
@@ -1514,18 +1524,17 @@ def define_H_ip(direct_adc,t_amp):
         r_aba = r[s_aba:f_aba]
         r_bbb = r[s_bbb:f_bbb]
 
-        r_bab = r_bab.reshape(nvir_b,nocc_a,nocc_b)
+        #r_bab = r_bab.reshape(nvir_b,nocc_a,nocc_b)
 
 ############ ADC(2) ij block ############################
         
         s[s_a:f_a] = np.einsum('ij,j->i',M_ij_a,r_a) 
         s[s_b:f_b] = np.einsum('ij,j->i',M_ij_b,r_b) 
             
-
 ############ ADC(2) i - kja block #########################
        
         s[s_a:f_a] += np.einsum('ip,p->i', v2e_vooo_1_a, r_aaa, optimize = True)
-        s[s_a:f_a] -= np.einsum('iajk,akj->i', v2e_ovoo_ab, r_bab, optimize = True)
+        s[s_a:f_a] += np.einsum('ip,p->i', v2e_vooo_1_ab_a, r_bab, optimize = True)
 
         s[s_b:f_b] += np.einsum('ip,p->i', v2e_vooo_1_b, r_bbb, optimize = True)
         s[s_b:f_b] += np.einsum('ip,p->i', v2e_vooo_1_ab_b, r_aba, optimize = True)
@@ -1534,10 +1543,8 @@ def define_H_ip(direct_adc,t_amp):
 
         temp = np.einsum('jkai,i->ajk', v2e_oovo_a, r_a, optimize = True)
         s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1]].reshape(-1)
-        
         s[s_bab:f_bab] += np.einsum('ajki,i->ajk', v2e_oovo_1_ab, r_a, optimize = True).reshape(-1)
-
-        s[s_aba:f_aba] += np.einsum('ajki,i->ajk', v2e_oovo_1_ab, r_b, optimize = True).reshape(-1)
+        s[s_aba:f_aba] += np.einsum('ajki,i->ajk', v2e_oovo_2_ab, r_b, optimize = True).reshape(-1)
         s[s_bbb:f_bbb] += np.einsum('api,i->ap', v2e_oovo_1_b, r_b, optimize = True).reshape(-1)
 
 ################ ADC(2) ajk - bil block ############################
@@ -1921,7 +1928,6 @@ def get_Mab(direct_adc,t_amp):
     idn_vir_a = np.identity(nvir_a)
     idn_vir_b = np.identity(nvir_b)
 
-
     v2e_oovv_a,v2e_oovv_ab,v2e_oovv_b = direct_adc.v2e.oovv
     v2e_ooov_a,v2e_ooov_ab,v2e_ooov_b = direct_adc.v2e.ooov
     v2e_oooo_a,v2e_oooo_ab,v2e_oooo_b = direct_adc.v2e.oooo
@@ -2293,10 +2299,8 @@ def define_H_ea(direct_adc,t_amp):
         r_aba = r[s_aba:f_aba]
         r_bbb = r[s_bbb:f_bbb]
 
-
         r_aba = r_aba.reshape(nocc_a,nvir_b,nvir_a)
         r_bab = r_bab.reshape(nocc_b,nvir_a,nvir_b)
-
 
 ############ ADC(2) ab block ############################
         
@@ -2332,7 +2336,8 @@ def define_H_ea(direct_adc,t_amp):
        	
                t2_2_a, t2_2_ab, t2_2_b = t2_2
 
-               #print("Calculating additional terms for adc(2)-e")	
+
+
 
                r_aaa = r_aaa.reshape(nocc_a,-1)
                r_bbb = r_bbb.reshape(nocc_b,-1)
@@ -2352,7 +2357,6 @@ def define_H_ea(direct_adc,t_amp):
                    r_bbb_u = np.zeros((nocc_b,nvir_b,nvir_b))
                r_bbb_u[:,ab_ind_b[0],ab_ind_b[1]]= r_bbb.copy()    
                r_bbb_u[:,ab_ind_b[1],ab_ind_b[0]]= -r_bbb.copy()   
-
 
                temp = 0.5*np.einsum('yxwz,izw->ixy',v2e_vvvv_a,r_aaa_u ,optimize = True)
                s[s_aaa:f_aaa] += temp[:,ab_ind_a[0],ab_ind_a[1]].reshape(-1)
@@ -2419,7 +2423,6 @@ def define_H_ea(direct_adc,t_amp):
                temp += 0.5*np.einsum('yjiw,jxw->ixy',v2e_voov_ab,r_aba,optimize = True)
 
                s[s_bbb:f_bbb] += temp[:,ab_ind_b[0],ab_ind_b[1]].reshape(-1)   
-                
 
         if (method == "adc(3)"):
       
@@ -2436,7 +2439,6 @@ def define_H_ea(direct_adc,t_amp):
                temp_1 = -np.einsum('lmzw,jzw->jlm',t2_1_ab,r_bab)
                s[s_a:f_a] -= np.einsum('jlm,lmaj->a',temp_1, v2e_oovo_ab, optimize=True)
 
-          
                temp = -0.5*np.einsum('lmwz,lmaj->ajzw',t2_1_b,v2e_oovo_b)
                temp = temp[:,:,ab_ind_b[0],ab_ind_b[1]]          
  
@@ -2485,7 +2487,6 @@ def define_H_ea(direct_adc,t_amp):
                s[s_a:f_a] += 0.5*np.einsum('lzd,zlad->a',temp,v2e_vovv_a,optimize=True)
                s[s_a:f_a] += 0.5*np.einsum('lzd,zlad->a',temp_1,v2e_vovv_ab,optimize=True)
                s[s_a:f_a] -= 0.5*np.einsum('lzd,zlda->a',temp_2,v2e_vovv_ab,optimize=True)
-               
 
                if direct_adc.algorithm == "dynamical":
                    temp = np.zeros_like(r_aba,dtype=complex)
@@ -2507,7 +2508,6 @@ def define_H_ea(direct_adc,t_amp):
                s[s_b:f_b] += 0.5*np.einsum('lzd,zlad->a',temp_1,v2e_vovv_ab,optimize=True)
                s[s_b:f_b] -= 0.5*np.einsum('lzd,zlda->a',temp_2,v2e_vovv_ab,optimize=True)
 
-
                if direct_adc.algorithm == "dynamical":
                    temp = np.zeros_like(r_bab,dtype=complex)
                else:
@@ -2527,7 +2527,6 @@ def define_H_ea(direct_adc,t_amp):
                s[s_a:f_a] -= 0.5*np.einsum('lwd,wlad->a',temp,v2e_vovv_a,optimize=True)
                s[s_a:f_a] -= 0.5*np.einsum('lwd,wlad->a',temp_1,v2e_vovv_ab,optimize=True)
                s[s_a:f_a] += 0.5*np.einsum('lwd,wlda->a',temp_2,v2e_vovv_ab,optimize=True)
-
 
                if direct_adc.algorithm == "dynamical":
                    temp = np.zeros_like(r_aba,dtype=complex)
@@ -2550,7 +2549,6 @@ def define_H_ea(direct_adc,t_amp):
                s[s_b:f_b] += 0.5*np.einsum('lwd,wlda->a',temp_2,v2e_vovv_ab,optimize=True)
 
 ############### ADC(3) ibc - a block ############################
-                
 
                t2_1_a_t = t2_1_a[:,:,ab_ind_a[0],ab_ind_a[1]] 
                temp = np.einsum('lmp,lmbi->bip',t2_1_a_t,v2e_oovo_a)
@@ -2625,7 +2623,6 @@ def define_H_ea(direct_adc,t_amp):
 
         return s
 
-
     if (direct_adc.algorithm == "dynamical"):
 
         precond_ = -precond.copy()
@@ -2637,7 +2634,6 @@ def define_H_ea(direct_adc,t_amp):
         precond_ = precond.copy()
         M_ab_a_ = M_ab_a.copy()
         M_ab_b_ = M_ab_b.copy()
-
 
     return sigma_,precond_,(M_ab_a_,M_ab_b_)
 
@@ -2664,9 +2660,6 @@ def solve_conjugate_gradients(direct_adc,apply_H,precond,T,r,omega,orb):
 
     d = (precond+omega)**(-1)*res
 
-    #if direct_adc.IP == True:
-    #    d = (precond+omega)**(-1)*res
-    #if direct_adc.EA == True:
     #d = res
     
     #delta_new = np.dot(np.ravel(res), np.ravel(res))
@@ -2691,9 +2684,6 @@ def solve_conjugate_gradients(direct_adc,apply_H,precond,T,r,omega,orb):
         #s = (precond+1e-6)**(-1)*res
         s = (precond+omega)**(-1)*res
 
-        #if direct_adc.IP == True:
-        #    s = (precond+omega)**(-1)*res
-        #if direct_adc.EA == True:
         #s = res
 
         delta_old = delta_new
@@ -2732,11 +2722,10 @@ def setup_davidson_ip(direct_adc, t_amp):
 
     apply_H, precond, M_ij = define_H_ip(direct_adc, t_amp)
 
-#    x0 = compute_guess_vectors_M(direct_adc, precond, M_ij)
+#   x0 = compute_guess_vectors_M(direct_adc, precond, M_ij)
     x0 = compute_guess_vectors(direct_adc, precond)
 
     return apply_H, precond, x0
-
 
 def setup_davidson_ea(direct_adc, t_amp):
 
