@@ -109,6 +109,14 @@ def conventional(direct_adc):
 
     # Save to a file or plot depeneding on user input
     # Plot     
+
+
+############ Koushik Chatterjee
+    # Compute transition moments and spectroscopic factors
+    P = spec_factors(direct_adc, t_amp, U)
+    print ("%s spectroscopic intensity:" % (direct_adc.method))
+    print (P.reshape(-1,1))
+############
    
     
 def compute_amplitudes(direct_adc):
@@ -1931,3 +1939,37 @@ def cvs_projector(direct_adc, r):
     Pr[s_bbb:f_bbb] = temp[:,ij_b[0],ij_b[1]].reshape(-1).copy()
     
     return Pr
+
+
+def spec_factors(direct_adc, t_amp, U):
+
+    start_time = time.time()
+
+    print ("\nComputing spectroscopic intensity:")
+
+    nmo     = direct_adc.nmo
+    nstates = direct_adc.nstates
+
+    P = np.zeros((nstates))
+
+    U = np.array(U)
+
+    for orb in range(nmo):
+
+            T_a = calculate_T(direct_adc, t_amp, orb, spin = "alpha")
+
+            T_b = calculate_T(direct_adc, t_amp, orb, spin = "beta")
+
+            T_a = np.dot(T_a, U.T)
+            for i in range(nstates):
+                P[i] += np.square(np.absolute(T_a[i]))
+
+
+            T_b = np.dot(T_b, U.T)
+            for i in range(nstates):
+                P[i] += np.square(np.absolute(T_b[i]))
+
+    print ("Time for Computing spectroscopic intensity:     %f sec\n" % (time.time() - start_time))
+    sys.stdout.flush()
+
+    return P
