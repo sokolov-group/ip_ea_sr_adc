@@ -157,6 +157,13 @@ def conventional(direct_adc):
         E_ea_ev = E_ea * 27.211606
         print (E_ea_ev.reshape(-1, 1))
 
+############ Koushik Chatterjee
+    # Compute transition moments and spectroscopic factors
+    P = spec_factors(direct_adc, t_amp, U_ip)
+    print ("%s spectroscopic intensity:" % (direct_adc.method))
+    print (P.reshape(-1,1))
+############
+
     print ("Computation successfully finished")
     print ("Total time:", (time.time() - t_start, "sec"))
 
@@ -2895,6 +2902,41 @@ def cvs_projector(direct_adc, r):
     
     return Pr
 
+
+def spec_factors(direct_adc, t_amp, U):
+
+    start_time = time.time()
+
+    print ("\nComputing spectroscopic intensity:")
+
+    nmo     = direct_adc.nmo
+    nstates = direct_adc.nstates
+
+    P = np.zeros((nstates))
+
+    U = np.array(U)
+
+    for orb in range(nmo):
+
+            T_a = calculate_T(direct_adc, t_amp, orb, spin = "alpha")
+
+            T_b = calculate_T(direct_adc, t_amp, orb, spin = "beta")
+
+            T_a = np.dot(T_a, U.T)
+            for i in range(nstates):
+                P[i] += np.square(np.absolute(T_a[i]))
+
+
+            T_b = np.dot(T_b, U.T)
+            for i in range(nstates):
+                P[i] += np.square(np.absolute(T_b[i]))
+
+    print ("Time for Computing spectroscopic intensity:     %f sec\n" % (time.time() - start_time))
+    sys.stdout.flush()
+
+    return P
+
+
 def filter_states(direct_adc, U_cvs, nroots):
 
     def pick_mom(w,v,nroots,local_var):
@@ -2919,4 +2961,3 @@ def filter_states(direct_adc, U_cvs, nroots):
        #print (P[idx])
        return w[idx], v[:,idx], idx
     return pick_mom   
- 
