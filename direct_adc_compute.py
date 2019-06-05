@@ -2909,23 +2909,25 @@ def spec_factors(direct_adc, t_amp, U):
 
     print ("\nComputing spectroscopic intensity:")
 
-    nmo     = direct_adc.nmo
+    nmo_a     = direct_adc.nmo_a
+    nmo_b     = direct_adc.nmo_b
     nstates = direct_adc.nstates
 
     P = np.zeros((nstates))
 
     U = np.array(U)
 
-    for orb in range(nmo):
+    for orb in range(nmo_a):
 
-            T_a = calculate_T(direct_adc, t_amp, orb, spin = "alpha")
-
-            T_b = calculate_T(direct_adc, t_amp, orb, spin = "beta")
+            T_a = calculate_T_ip(direct_adc, t_amp, orb, spin = "alpha")
 
             T_a = np.dot(T_a, U.T)
             for i in range(nstates):
                 P[i] += np.square(np.absolute(T_a[i]))
 
+    for orb in range(nmo_b): 
+
+            T_b = calculate_T_ip(direct_adc, t_amp, orb, spin = "beta")
 
             T_b = np.dot(T_b, U.T)
             for i in range(nstates):
