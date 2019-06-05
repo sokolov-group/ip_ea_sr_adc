@@ -10,30 +10,68 @@ class DirectADC:
     def __init__(self, mf):
 
         print ("Initializing Direct ADC...\n")
-     
-        # General info
-        mo = mf.mo_coeff.copy()
-        self.nmo = mo.shape[1]
 
-        for p in range(self.nmo):
-            max_coeff_ind = np.argmax(np.absolute(mo[:,p]))
-            if (mo[max_coeff_ind,p] < 0.0):
-                mo[:,p] *= -1.0
+        if "RHF" in str(type(mf)):                                                                                                                                                
+            print ("RHF reference detected")                                                                                                                                                 
 
-        self.mo_a = mo.copy()
-        self.mo_b = mo.copy()
-        self.nelec = mf.mol.nelectron
-        self.nelec_a = mf.mol.nelectron // 2
-        self.nelec_b = mf.mol.nelectron // 2
-        self.nocc_a = self.nelec_a
-        self.nocc_b = self.nelec_b
-        self.nvir_a = self.nmo - self.nelec_a
-        self.nvir_b = self.nmo - self.nelec_b
-        self.enuc = mf.mol.energy_nuc()
-        self.mo_energy_a = mf.mo_energy.copy()
-        self.mo_energy_b = mf.mo_energy.copy()
-        self.e_scf = mf.e_tot
- 
+            mo = mf.mo_coeff.copy()
+            self.nmo_a = mo.shape[1]
+            self.nmo_b = mo.shape[1]
+
+            for p in range(self.nmo_a):
+                max_coeff_ind = np.argmax(np.absolute(mo[:,p]))
+                if (mo[max_coeff_ind,p] < 0.0):
+                    mo[:,p] *= -1.0
+
+            self.mo_a = mo.copy()
+            self.mo_b = mo.copy()
+            self.nelec = mf.mol.nelectron
+            self.nelec_a = mf.mol.nelectron // 2
+            self.nelec_b = mf.mol.nelectron // 2
+            self.nocc_a = self.nelec_a
+            self.nocc_b = self.nelec_b
+            self.nvir_a = self.nmo_a - self.nelec_a
+            self.nvir_b = self.nmo_b - self.nelec_b
+            self.enuc = mf.mol.energy_nuc()
+            self.mo_energy_a = mf.mo_energy.copy()
+            self.mo_energy_b = mf.mo_energy.copy()
+            self.e_scf = mf.e_tot
+
+        elif "UHF" in str(type(mf)):                                                                                                                                              
+            print ("UHF reference detected")                                                                                                                                                 
+
+            mo_a = mf.mo_coeff[0].copy()
+            mo_b = mf.mo_coeff[1].copy()
+            self.nmo_a = mo_a.shape[1]
+            self.nmo_b = mo_b.shape[1]
+
+            for p in range(self.nmo_a):
+                max_coeff_ind = np.argmax(np.absolute(mo_a[:,p]))
+                if (mo_a[max_coeff_ind,p] < 0.0):
+                    mo_a[:,p] *= -1.0
+
+            for p in range(self.nmo_b):
+                max_coeff_ind = np.argmax(np.absolute(mo_b[:,p]))
+                if (mo_b[max_coeff_ind,p] < 0.0):
+                    mo_b[:,p] *= -1.0
+
+            self.mo_a = mo_a.copy()
+            self.mo_b = mo_b.copy()
+            self.nelec = mf.mol.nelectron
+            self.nelec_a = mf.nelec[0]
+            self.nelec_b = mf.nelec[1]
+            self.nocc_a = self.nelec_a
+            self.nocc_b = self.nelec_b
+            self.nvir_a = self.nmo_a - self.nelec_a
+            self.nvir_b = self.nmo_b - self.nelec_b
+            self.enuc = mf.mol.energy_nuc()
+            self.mo_energy_a = mf.mo_energy[0].copy()
+            self.mo_energy_b = mf.mo_energy[1].copy()
+            self.e_scf = mf.e_tot
+
+        else:                                                                                                                                                                     
+            raise Exception("ADC code is not implemented for this reference")                                                                                                     
+                                                                                                                                                                                
         # Direct ADC specific variables
         self.nstates = 10
         self.step = 0.01
@@ -43,6 +81,11 @@ class DirectADC:
         self.maxiter = 200
         self.method = "adc(3)"
         self.algorithm = "dynamical" # dynamical vs conventional vs cvs
+
+        # IP or EA flags
+
+        self.EA = True
+        self.IP = True
 
         # Davidson and CVS specific variables
         self.n_core = 6 # number of core spatial orbitals
@@ -59,22 +102,18 @@ class DirectADC:
 
         self.v2e = lambda:None
 
-
 #        print(v2e_vvvv_a.flags)
 #        print(v2e_vvvv_ab.flags)
 #        print(v2e_vvvv_b.flags)
-       
 
         occ_a = self.mo_a[:,:self.nocc_a].copy()
         occ_b = self.mo_b[:,:self.nocc_b].copy()
         vir_a = self.mo_a[:,self.nocc_a:].copy()
-        vir_b = self.mo_a[:,self.nocc_b:].copy()
-
+        vir_b = self.mo_b[:,self.nocc_b:].copy()
 
         occ = occ_a, occ_b
         vir = vir_a, vir_b
 
-        
         self.v2e.oovv = transform_antisymmetrize_integrals(mf, (occ,occ,vir,vir))
         self.v2e.vvvv = transform_antisymmetrize_integrals(mf, (vir,vir,vir,vir))
         self.v2e.oooo = transform_antisymmetrize_integrals(mf, (occ,occ,occ,occ))
@@ -94,7 +133,6 @@ class DirectADC:
         
         #print (np.linalg.norm(self.v2e.oovv[0]))
         #exit()
-    
 
     def kernel(self):
 
@@ -102,9 +140,10 @@ class DirectADC:
             direct_adc_compute.kernel(self)
         elif self.algorithm == "conventional" or self.algorithm == "cvs":
             direct_adc_compute.conventional(self)
+        elif self.algorithm == "mom_conventional":
+            direct_adc_compute.mom_conventional(self)
         else:
             raise Exception("Algorithm is not recognized")
-
 
 def transform_antisymmetrize_integrals(mf,mo):
 
@@ -128,7 +167,6 @@ def transform_antisymmetrize_integrals(mf,mo):
         v2e_temp = v2e_temp.reshape(mo_1_a.shape[1], mo_4_a.shape[1], mo_2_a.shape[1], mo_3_a.shape[1])
         v2e_a -= v2e_temp.transpose(0,2,3,1).copy()
 
-
     v2e_b = pyscf.ao2mo.general(mf._eri, (mo_1_b, mo_3_b, mo_2_b, mo_4_b), compact=False)
     v2e_b = v2e_b.reshape(mo_1_b.shape[1], mo_3_b.shape[1], mo_2_b.shape[1], mo_4_b.shape[1])
     v2e_b = v2e_b.transpose(0,2,1,3).copy()
@@ -147,5 +185,3 @@ def transform_antisymmetrize_integrals(mf,mo):
     v2e_ab = v2e_ab.transpose(0,2,1,3).copy()
 
     return (v2e_a, v2e_ab, v2e_b)
-
-
