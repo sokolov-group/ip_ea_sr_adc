@@ -1735,8 +1735,8 @@ def define_H_ip(direct_adc,t_amp):
                 
 
 #        if (method == "adc(3)"):
-#      
-#            #print("Calculating additional terms for adc(3)")	
+     
+           #print("Calculating additional terms for adc(3)")	
 #             
 #               temp = s[s_bab:f_bab].reshape(nvir_b,nocc_a,nocc_b).transpose(0,2,1).copy()
 #               s[s_bab:f_bab] = temp.reshape(-1)
@@ -1744,209 +1744,294 @@ def define_H_ip(direct_adc,t_amp):
 #               temp = s[s_aba:f_aba].reshape(nvir_a,nocc_b,nocc_a).transpose(0,2,1).copy()
 #               s[s_aba:f_aba] = temp.reshape(-1)
 #
-#               r_bab = r_bab.reshape(nvir_b,nocc_a,nocc_b)
-#               r_aba = r_aba.reshape(nvir_a,nocc_b,nocc_a)
+#              r_bab = r_bab.reshape(nvir_b,nocc_b,nocc_a)
+#              r_aba = r_aba.reshape(nvir_a,nocc_a,nocc_b)
 
 ################ ADC(3) i - kja block ############################
+
+               t2_1_a_t = t2_1_a[ij_ind_a[0],ij_ind_a[1],:,:]
+               temp = np.einsum('pbc,bcai->pai',t2_1_a_t,v2e_vvvo_a)
+               r_aaa = r_aaa.reshape(nvir_a,-1)
+               s[s_a:f_a] += 0.5*np.einsum('pai,ap->i',temp, r_aaa, optimize=True)
 #
-#               t2_1_a_t = t2_1_a[ij_ind_a[0],ij_ind_a[1],:,:]
-#               temp = np.einsum('pbc,bcai->pai',t2_1_a_t,v2e_vvvo_a)
-#          
-#               r_aaa = r_aaa.reshape(nvir_a,-1)
-#               s[s_a:f_a] += np.einsum('pai,ap->i',temp, r_aaa, optimize=True)
+#               #temp_1 = np.einsum('jkbc,ajk->abc',t2_1_ab,r_bab)
+#               #s[s_a:f_a] -= np.einsum('abc,bcia->i',temp_1, v2e_vvov_ab, optimize=True)
 #
-#               temp_1 = np.einsum('jkbc,ajk->abc',t2_1_ab,r_bab)
+               temp_1 = np.einsum('kjcb,ajk->abc',t2_1_ab,r_bab)
+               s[s_a:f_a] += np.einsum('abc,cbia->i',temp_1, v2e_vvov_ab, optimize=True)
 #
-#               s[s_a:f_a] -= np.einsum('abc,bcia->i',temp_1, v2e_vvov_ab, optimize=True)
 #
-#               t2_1_b_t = t2_1_b[ij_ind_b[0],ij_ind_b[1],:,:]
-#               temp = np.einsum('pbc,bcai->pai',t2_1_b_t,v2e_vvvo_b)
-#          
-#               r_bbb = r_bbb.reshape(nvir_b,-1)
-#               s[s_b:f_b] += np.einsum('pai,ap->i',temp, r_bbb, optimize=True)
+               t2_1_b_t = t2_1_b[ij_ind_b[0],ij_ind_b[1],:,:]
+               temp = np.einsum('pbc,bcai->pai',t2_1_b_t,v2e_vvvo_b)
+               r_bbb = r_bbb.reshape(nvir_b,-1)
+               s[s_b:f_b] += 0.5*np.einsum('pai,ap->i',temp, r_bbb, optimize=True)
 #
-#               temp_1 = np.einsum('jkbc,ajk->abc',t2_1_ab,r_aba)
+#               #temp_1 = np.einsum('jkbc,ajk->abc',t2_1_ab,r_aba)
+#               #s[s_b:f_b] -= np.einsum('abc,bcia->i',temp_1, v2e_vvov_ab, optimize=True)
 #
-#               s[s_b:f_b] -= np.einsum('abc,bcia->i',temp_1, v2e_vvov_ab, optimize=True)
-#
-#               if direct_adc.algorithm == "dynamical":
-#                   r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a),dtype=complex)
-#               else:
-#                   r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a))
-#               r_aaa_u[:,ij_ind_a[0],ij_ind_a[1]]= r_aaa.copy()    
-#               r_aaa_u[:,ij_ind_a[1],ij_ind_a[0]]= -r_aaa.copy()    
-#
-#               if direct_adc.algorithm == "dynamical":
-#                   r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b),dtype=complex)
-#               else:
-#                   r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b))
-#               r_bbb_u[:,ij_ind_b[0],ij_ind_b[1]]= r_bbb.copy()    
-#               r_bbb_u[:,ij_ind_b[1],ij_ind_b[0]]= -r_bbb.copy()    
-#
-#               r_bab = r_bab.reshape(nvir_b,nocc_a,nocc_b)
-#               r_aba = r_aba.reshape(nvir_a,nocc_b,nocc_a)
-#
-#               if direct_adc.algorithm == "dynamical":
-#                   temp = np.zeros_like(r_bab,dtype=complex)
-#               else:
-#                   temp = np.zeros_like(r_bab)
-#               temp = np.einsum('jlab,ajk->blk',t2_1_a,r_aaa_u,optimize=True)
-#               temp -= np.einsum('jlab,ajk->blk',t2_1_ab,r_bab,optimize=True)
-#
-#               if direct_adc.algorithm == "dynamical":
-#                   temp_1 = np.zeros_like(r_bab,dtype=complex)
-#               else:
-#                   temp_1 = np.zeros_like(r_bab)
-#               temp_1 = np.einsum('jlab,ajk->blk',t2_1_ab,r_aaa_u,optimize=True)
-#               temp_1 -= np.einsum('jlab,ajk->blk',t2_1_b,r_bab,optimize=True)
-#               
-#               temp_2 = np.einsum('jlba,akj->blk',t2_1_ab,r_bab)
-#               
-#               s[s_a:f_a] += 0.5*np.einsum('blk,ilkb->i',temp,v2e_ooov_a,optimize=True)
-#               s[s_a:f_a] += 0.5*np.einsum('blk,ilkb->i',temp_1,v2e_ooov_ab,optimize=True)
-#               s[s_a:f_a] += 0.5*np.einsum('blk,ilbk->i',temp_2,v2e_oovo_ab,optimize=True)
-#
-#               if direct_adc.algorithm == "dynamical":
-#                   temp = np.zeros_like(r_aba,dtype=complex)
-#               else:
-#                   temp = np.zeros_like(r_aba)
-#               temp = np.einsum('jlab,ajk->blk',t2_1_b,r_bbb_u,optimize=True)
-#               temp -= np.einsum('jlab,ajk->blk',t2_1_ab,r_aba,optimize=True)
-#
-#               if direct_adc.algorithm == "dynamical":
-#                   temp_1 = np.zeros_like(r_aba,dtype=complex)
-#               else:
-#                   temp_1 = np.zeros_like(r_aba)
-#               temp_1 = np.einsum('jlab,ajk->blk',t2_1_ab,r_bbb_u,optimize=True)
-#               temp_1 -= np.einsum('jlab,ajk->blk',t2_1_a,r_aba,optimize=True)
-#               
-#               temp_2 = np.einsum('jlba,akj->blk',t2_1_ab,r_aba,optimize=True)
-#               
-#               s[s_b:f_b] += 0.5*np.einsum('blk,ilkb->i',temp,v2e_ooov_b,optimize=True)
-#               s[s_b:f_b] += 0.5*np.einsum('blk,ilkb->i',temp_1,v2e_ooov_ab,optimize=True)
-#               s[s_b:f_b] += 0.5*np.einsum('blk,ilbk->i',temp_2,v2e_oovo_ab,optimize=True)
-#
-#               if direct_adc.algorithm == "dynamical":
-#                   temp = np.zeros_like(r_bab,dtype=complex)
-#               else:
-#                   temp = np.zeros_like(r_bab)
-#               temp = -np.einsum('klab,akj->blj',t2_1_a,r_aaa_u,optimize=True)
-#               temp += np.einsum('klab,akj->blj',t2_1_ab,r_bab,optimize=True)
-#               
-#               if direct_adc.algorithm == "dynamical":
-#                   temp_1 = np.zeros_like(r_bab,dtype=complex)
-#               else:
-#                   temp_1 = np.zeros_like(r_bab)
-#               temp_1 = -np.einsum('klab,akj->blj',t2_1_ab,r_aaa_u,optimize=True)
-#               temp_1 += np.einsum('klab,akj->blj',t2_1_b,r_bab,optimize=True)
-#
-#               temp_2 = -np.einsum('klba,ajk->blj',t2_1_ab,r_bab,optimize=True)
-#
-#               s[s_a:f_a] -= 0.5*np.einsum('blj,iljb->i',temp,v2e_ooov_a,optimize=True)
-#               s[s_a:f_a] -= 0.5*np.einsum('blj,iljb->i',temp_1,v2e_ooov_ab,optimize=True)
-#               s[s_a:f_a] -= 0.5*np.einsum('blj,ilbj->i',temp_2,v2e_oovo_ab,optimize=True)
-#
-#               if direct_adc.algorithm == "dynamical":
-#                   temp = np.zeros_like(r_aba,dtype=complex)
-#               else:
-#                   temp = np.zeros_like(r_aba)
-#               temp = -np.einsum('klab,akj->blj',t2_1_b,r_bbb_u,optimize=True)
-#               temp += np.einsum('klab,akj->blj',t2_1_ab,r_aba,optimize=True)
-#               
-#               if direct_adc.algorithm == "dynamical":
-#                   temp_1 = np.zeros_like(r_bab,dtype=complex)
-#               else:
-#                   temp_1 = np.zeros_like(r_bab)
-#               temp_1 = -np.einsum('klab,akj->blj',t2_1_ab,r_bbb_u,optimize=True)
-#               temp_1 += np.einsum('klab,akj->blj',t2_1_a,r_aba,optimize=True)
-#
-#               temp_2 = -np.einsum('klba,ajk->blj',t2_1_ab,r_aba,optimize=True)
-#
-#               s[s_b:f_b] -= 0.5*np.einsum('blj,iljb->i',temp,v2e_ooov_b,optimize=True)
-#               s[s_b:f_b] -= 0.5*np.einsum('blj,iljb->i',temp_1,v2e_ooov_ab,optimize=True)
-#               s[s_b:f_b] -= 0.5*np.einsum('blj,ilbj->i',temp_2,v2e_oovo_ab,optimize=True)
-#
+               temp_1 = np.einsum('jkbc,ajk->abc',t2_1_ab,r_aba)
+               s[s_b:f_b] += np.einsum('abc,bcai->i',temp_1, v2e_vvvo_ab, optimize=True)
+
+
+
+
+
+               if direct_adc.algorithm == "dynamical":
+                   r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a),dtype=complex)
+               else:
+                   r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a))
+               r_aaa_u[:,ij_ind_a[0],ij_ind_a[1]]= r_aaa.copy()    
+               r_aaa_u[:,ij_ind_a[1],ij_ind_a[0]]= -r_aaa.copy()    
+
+               if direct_adc.algorithm == "dynamical":
+                   r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b),dtype=complex)
+               else:
+                   r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b))
+               r_bbb_u[:,ij_ind_b[0],ij_ind_b[1]]= r_bbb.copy()    
+               r_bbb_u[:,ij_ind_b[1],ij_ind_b[0]]= -r_bbb.copy()    
+
+               r_bab = r_bab.reshape(nvir_b,nocc_b,nocc_a)
+               r_aba = r_aba.reshape(nvir_a,nocc_a,nocc_b)
+
+               if direct_adc.algorithm == "dynamical":
+                   temp = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp = np.zeros_like(r_bab)
+               temp = np.einsum('jlab,ajk->blk',t2_1_a,r_aaa_u,optimize=True)
+               #temp -= np.einsum('jlab,ajk->blk',t2_1_ab,r_bab,optimize=True)
+               temp += np.einsum('ljba,ajk->blk',t2_1_ab,r_bab,optimize=True)
+
+               if direct_adc.algorithm == "dynamical":
+                   temp_1 = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp_1 = np.zeros_like(r_bab)
+               temp_1 = np.einsum('jlab,ajk->blk',t2_1_ab,r_aaa_u,optimize=True)
+               #temp_1 -= np.einsum('jlab,ajk->blk',t2_1_b,r_bab,optimize=True)
+               temp_1 += np.einsum('jlab,ajk->blk',t2_1_b,r_bab,optimize=True)
+               
+               temp_2 = np.einsum('jlba,akj->blk',t2_1_ab,r_bab)
+               
+               s[s_a:f_a] += 0.5*np.einsum('blk,ilkb->i',temp,v2e_ooov_a,optimize=True)
+               s[s_a:f_a] += 0.5*np.einsum('blk,ilkb->i',temp_1,v2e_ooov_ab,optimize=True)
+               #s[s_a:f_a] += 0.5*np.einsum('blk,ilbk->i',temp_2,v2e_oovo_ab,optimize=True)
+               s[s_a:f_a] -= 0.5*np.einsum('blk,ilbk->i',temp_2,v2e_oovo_ab,optimize=True)
+
+               if direct_adc.algorithm == "dynamical":
+                   temp = np.zeros_like(r_aba,dtype=complex)
+               else:
+                   temp = np.zeros_like(r_aba)
+               temp = np.einsum('jlab,ajk->blk',t2_1_b,r_bbb_u,optimize=True)
+               #temp -= np.einsum('jlab,ajk->blk',t2_1_ab,r_aba,optimize=True)
+               temp += np.einsum('jlab,ajk->blk',t2_1_ab,r_aba,optimize=True)
+
+               if direct_adc.algorithm == "dynamical":
+                   temp_1 = np.zeros_like(r_aba,dtype=complex)
+               else:
+                   temp_1 = np.zeros_like(r_aba)
+               #temp_1 = np.einsum('jlab,ajk->blk',t2_1_ab,r_bbb_u,optimize=True)
+               temp_1 = np.einsum('ljba,ajk->blk',t2_1_ab,r_bbb_u,optimize=True)
+               #temp_1 -= np.einsum('jlab,ajk->blk',t2_1_a,r_aba,optimize=True)
+               temp_1 += np.einsum('jlab,ajk->blk',t2_1_a,r_aba,optimize=True)
+               
+               #temp_2 = np.einsum('jlba,akj->blk',t2_1_ab,r_aba,optimize=True)
+               temp_2 = np.einsum('ljab,akj->blk',t2_1_ab,r_aba,optimize=True)
+               
+               s[s_b:f_b] += 0.5*np.einsum('blk,ilkb->i',temp,v2e_ooov_b,optimize=True)
+               #s[s_b:f_b] += 0.5*np.einsum('blk,ilkb->i',temp_1,v2e_ooov_ab,optimize=True)
+               s[s_b:f_b] += 0.5*np.einsum('blk,libk->i',temp_1,v2e_oovo_ab,optimize=True)
+               #s[s_b:f_b] += 0.5*np.einsum('blk,ilbk->i',temp_2,v2e_oovo_ab,optimize=True)
+               s[s_b:f_b] -= 0.5*np.einsum('blk,likb->i',temp_2,v2e_ooov_ab,optimize=True)
+
+               if direct_adc.algorithm == "dynamical":
+                   temp = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp = np.zeros_like(r_bab)
+               temp = -np.einsum('klab,akj->blj',t2_1_a,r_aaa_u,optimize=True)
+               #temp += np.einsum('klab,akj->blj',t2_1_ab,r_bab,optimize=True)
+               temp -= np.einsum('lkba,akj->blj',t2_1_ab,r_bab,optimize=True)
+               
+               if direct_adc.algorithm == "dynamical":
+                   temp_1 = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp_1 = np.zeros_like(r_bab)
+               temp_1 = -np.einsum('klab,akj->blj',t2_1_ab,r_aaa_u,optimize=True)
+               #temp_1 += np.einsum('klab,akj->blj',t2_1_b,r_bab,optimize=True)
+               temp_1 -= np.einsum('klab,akj->blj',t2_1_b,r_bab,optimize=True)
+
+               #temp_2 = -np.einsum('klba,ajk->blj',t2_1_ab,r_bab,optimize=True)
+               temp_2 = -np.einsum('klba,ajk->blj',t2_1_ab,r_bab,optimize=True)
+
+               #s[s_a:f_a] -= 0.5*np.einsum('blj,iljb->i',temp,v2e_ooov_a,optimize=True)
+               #s[s_a:f_a] -= 0.5*np.einsum('blj,iljb->i',temp_1,v2e_ooov_ab,optimize=True)
+               #s[s_a:f_a] -= 0.5*np.einsum('blj,ilbj->i',temp_2,v2e_oovo_ab,optimize=True)
+
+
+               s[s_a:f_a] -= 0.5*np.einsum('blj,iljb->i',temp,v2e_ooov_a,optimize=True)
+               s[s_a:f_a] -= 0.5*np.einsum('blj,iljb->i',temp_1,v2e_ooov_ab,optimize=True)
+               #s[s_a:f_a] += 0.5*np.einsum('blj,ilbj->i',temp_2,v2e_oovo_ab,optimize=True)
+               s[s_a:f_a] += 0.5*np.einsum('blj,ilbj->i',temp_2,v2e_oovo_ab,optimize=True)
+
+
+
+
+               if direct_adc.algorithm == "dynamical":
+                   temp = np.zeros_like(r_aba,dtype=complex)
+               else:
+                   temp = np.zeros_like(r_aba)
+               temp = -np.einsum('klab,akj->blj',t2_1_b,r_bbb_u,optimize=True)
+               #temp += np.einsum('klab,akj->blj',t2_1_ab,r_aba,optimize=True)
+               temp -= np.einsum('klab,akj->blj',t2_1_ab,r_aba,optimize=True)
+               
+               if direct_adc.algorithm == "dynamical":
+                   temp_1 = np.zeros_like(r_bab,dtype=complex)
+               else:
+                   temp_1 = np.zeros_like(r_bab)
+               #temp_1 = -np.einsum('klab,akj->blj',t2_1_ab,r_bbb_u,optimize=True)
+               temp_1 = -np.einsum('lkba,akj->blj',t2_1_ab,r_bbb_u,optimize=True)
+               #temp_1 += np.einsum('klab,akj->blj',t2_1_a,r_aba,optimize=True)
+               temp_1 -= np.einsum('klab,akj->blj',t2_1_a,r_aba,optimize=True)
+
+               #temp_2 = -np.einsum('klba,ajk->blj',t2_1_ab,r_aba,optimize=True)
+               temp_2 = -np.einsum('lkab,ajk->blj',t2_1_ab,r_aba,optimize=True)
+
+               #s[s_b:f_b] -= 0.5*np.einsum('blj,iljb->i',temp,v2e_ooov_b,optimize=True)
+               #s[s_b:f_b] -= 0.5*np.einsum('blj,iljb->i',temp_1,v2e_ooov_ab,optimize=True)
+               #s[s_b:f_b] -= 0.5*np.einsum('blj,ilbj->i',temp_2,v2e_oovo_ab,optimize=True)
+
+
+               s[s_b:f_b] -= 0.5*np.einsum('blj,iljb->i',temp,v2e_ooov_b,optimize=True)
+               s[s_b:f_b] -= 0.5*np.einsum('blj,libj->i',temp_1,v2e_oovo_ab,optimize=True)
+               s[s_b:f_b] += 0.5*np.einsum('blj,lijb->i',temp_2,v2e_ooov_ab,optimize=True)
+
+
+
+
+
 ################ ADC(3) ajk - i block ############################
-#                
-#               t2_1_a_t = t2_1_a[ij_ind_a[0],ij_ind_a[1],:,:]
-#               temp = 0.5*np.einsum('pbc,bcai->api',t2_1_a_t,v2e_vvvo_a)
-#               
-#               s[s_aaa:f_aaa] += np.einsum('api,i->ap',temp, r_a, optimize=True).reshape(-1)
+                
+               t2_1_a_t = t2_1_a[ij_ind_a[0],ij_ind_a[1],:,:]
+               temp = 0.5*np.einsum('pbc,bcai->api',t2_1_a_t,v2e_vvvo_a)
+               s[s_aaa:f_aaa] += np.einsum('api,i->ap',temp, r_a, optimize=True).reshape(-1)
 #
-#               temp_1 = -np.einsum('jkbc,bcia->iajk',t2_1_ab,v2e_vvov_ab)
 #
-#               temp_1 = temp_1.reshape(nocc_a,-1)
-#
-#               s[s_bab:f_bab] += np.einsum('ip,i->p',temp_1, r_a, optimize=True).reshape(-1)
+#               #temp_1 = -np.einsum('jkbc,bcia->iajk',t2_1_ab,v2e_vvov_ab)
+#               #temp_1 = temp_1.reshape(nocc_a,-1)
+#               #s[s_bab:f_bab] += np.einsum('ip,i->p',temp_1, r_a, optimize=True).reshape(-1)
 #    
-#               t2_1_b_t = t2_1_b[ij_ind_b[0],ij_ind_b[1],:,:]
-#               temp = np.einsum('pbc,bcai->api',t2_1_b_t,v2e_vvvo_b)
-#          
-#               s[s_bbb:f_bbb] += 0.5*np.einsum('api,i->ap',temp, r_b, optimize=True).reshape(-1)
 #
-#               temp_1 = -np.einsum('jkbc,bcia->iajk',t2_1_ab,v2e_vvov_ab)
+               temp_1 = np.einsum('kjcb,cbia->iajk',t2_1_ab,v2e_vvov_ab)
+               temp_1 = temp_1.reshape(nocc_a,-1)
+               s[s_bab:f_bab] += np.einsum('ip,i->p',temp_1, r_a, optimize=True).reshape(-1)
 #
-#               temp_1 = temp_1.reshape(nocc_a,-1)
 #
-#               s[s_aba:f_aba] += np.einsum('ip,i->p',temp_1, r_b, optimize=True).reshape(-1)
+               t2_1_b_t = t2_1_b[ij_ind_b[0],ij_ind_b[1],:,:]
+               temp = 0.5*np.einsum('pbc,bcai->api',t2_1_b_t,v2e_vvvo_b)
+               s[s_bbb:f_bbb] += np.einsum('api,i->ap',temp, r_b, optimize=True).reshape(-1)
 #
-#               temp_1 = np.einsum('i,kbil->kbl',r_a, v2e_ovoo_a)
-#               temp_2 = np.einsum('i,kbil->kbl',r_a, v2e_ovoo_ab)
-#              
-#               temp  = np.einsum('kbl,jlab->ajk',temp_1,t2_1_a)
-#               temp += np.einsum('kbl,jlab->ajk',temp_2,t2_1_ab)
+#               #temp_1 = -np.einsum('jkbc,bcia->iajk',t2_1_ab,v2e_vvov_ab)
+#               #temp_1 = temp_1.reshape(nocc_a,-1)
+#               #s[s_aba:f_aba] += np.einsum('ip,i->p',temp_1, r_b, optimize=True).reshape(-1)
 #
-#               s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1] ].reshape(-1)
-#               
-#               temp  = -np.einsum('bkil,i->kbl',v2e_vooo_ab,r_a)
-#               temp_1  = -np.einsum('kbl,jlba->ajk',temp,t2_1_ab)
-#
-#               s[s_bab:f_bab] += temp_1.reshape(-1)
-#
-#               temp_1 = np.einsum('i,kbil->kbl',r_b, v2e_ovoo_b)
-#               temp_2 = np.einsum('i,kbil->kbl',r_b, v2e_ovoo_ab)
-#              
-#               temp  = np.einsum('kbl,jlab->ajk',temp_1,t2_1_b)
-#               temp += np.einsum('kbl,jlab->ajk',temp_2,t2_1_ab)
-#
-#               s[s_bbb:f_bbb] += temp[:,ij_ind_b[0],ij_ind_b[1] ].reshape(-1)
-#              
-#               temp  = -np.einsum('bkil,i->kbl',v2e_vooo_ab,r_b)
-#               temp_1  = -np.einsum('kbl,jlba->ajk',temp,t2_1_ab)
-#
-#               s[s_aba:f_aba] += temp_1.reshape(-1)
-#
-#               temp_1 = np.einsum('i,jbil->jbl',r_a, v2e_ovoo_a)
-#               temp_2 = np.einsum('i,jbil->jbl',r_a, v2e_ovoo_ab)
-#              
-#               temp  = np.einsum('jbl,klab->ajk',temp_1,t2_1_a)
-#               temp += np.einsum('jbl,klab->ajk',temp_2,t2_1_ab)
-#
-#               s[s_aaa:f_aaa] -= temp[:,ij_ind_a[0],ij_ind_a[1] ].reshape(-1)
-#              
-#               temp  = np.einsum('jbl,klab->ajk',temp_2,t2_1_b)
-#               temp  += np.einsum('jbl,klab->ajk',temp_1,t2_1_ab)
-#
-#               s[s_bab:f_bab] -= temp.reshape(-1)
-#
-#               temp_1 = np.einsum('i,jbil->jbl',r_b, v2e_ovoo_b)
-#               temp_2 = np.einsum('i,jbil->jbl',r_b, v2e_ovoo_ab)
-#              
-#               temp  = np.einsum('jbl,klab->ajk',temp_1,t2_1_b)
-#               temp += np.einsum('jbl,klab->ajk',temp_2,t2_1_ab)
-#
-#               s[s_bbb:f_bbb] -= temp[:,ij_ind_b[0],ij_ind_b[1] ].reshape(-1)
-#              
-#               temp  = np.einsum('jbl,klab->ajk',temp_2,t2_1_a)
-#               temp  += np.einsum('jbl,klab->ajk',temp_1,t2_1_ab)
-#
-#               s[s_aba:f_aba] -= temp.reshape(-1)
-#               
-#               temp = s[s_bab:f_bab].reshape(nvir_b,nocc_a,nocc_b).transpose(0,2,1)
-#               s[s_bab:f_bab] = temp.reshape(-1)
-#
-#               temp = s[s_aba:f_aba].reshape(nvir_a,nocc_b,nocc_a).transpose(0,2,1)
-#               s[s_aba:f_aba] = temp.reshape(-1)
+               
+               temp_1 = np.einsum('jkbc,bcai->iajk',t2_1_ab,v2e_vvvo_ab)
+               temp_1 = temp_1.reshape(nocc_b,-1)
+               s[s_aba:f_aba] += np.einsum('ip,i->p',temp_1, r_b, optimize=True).reshape(-1)
+
+
+
+
+
+               temp_1 = np.einsum('i,kbil->kbl',r_a, v2e_ovoo_a)
+               temp_2 = np.einsum('i,kbil->kbl',r_a, v2e_ovoo_ab)
+              
+               temp  = np.einsum('kbl,jlab->ajk',temp_1,t2_1_a)
+               temp += np.einsum('kbl,jlab->ajk',temp_2,t2_1_ab)
+
+               s[s_aaa:f_aaa] += temp[:,ij_ind_a[0],ij_ind_a[1] ].reshape(-1)
+               
+               #temp  = -np.einsum('bkil,i->kbl',v2e_vooo_ab,r_a)
+               #temp_1  = -np.einsum('kbl,jlba->ajk',temp,t2_1_ab)
+
+
+               temp_1  = np.einsum('i,kbil->kbl',r_a,v2e_ovoo_a)
+               temp_2  = np.einsum('i,kbil->kbl',r_a,v2e_ovoo_ab)
+
+               temp  = np.einsum('kbl,ljba->ajk',temp_1,t2_1_ab)
+               temp += np.einsum('kbl,jlab->ajk',temp_2,t2_1_b)
+               
+
+               s[s_bab:f_bab] += temp.reshape(-1)
+
+
+               temp_1 = np.einsum('i,kbil->kbl',r_b, v2e_ovoo_b)
+               temp_2 = np.einsum('i,bkli->kbl',r_b, v2e_vooo_ab)
+              
+               temp  = np.einsum('kbl,jlab->ajk',temp_1,t2_1_b)
+               #temp += np.einsum('kbl,jlab->ajk',temp_2,t2_1_ab)
+               temp += np.einsum('kbl,ljba->ajk',temp_2,t2_1_ab)
+
+               s[s_bbb:f_bbb] += temp[:,ij_ind_b[0],ij_ind_b[1] ].reshape(-1)
+              
+               #temp  = -np.einsum('bkil,i->kbl',v2e_vooo_ab,r_b)
+               #temp_1  = -np.einsum('kbl,jlba->ajk',temp,t2_1_ab)
+
+               #s[s_aba:f_aba] += temp_1.reshape(-1)
+
+
+
+               temp_1  = np.einsum('i,kbil->kbl',r_b,v2e_ovoo_b)
+               temp_2  = np.einsum('i,bkli->kbl',r_b,v2e_vooo_ab)
+
+               temp  = np.einsum('kbl,jlab->ajk',temp_1,t2_1_ab)
+               temp += np.einsum('kbl,jlab->ajk',temp_2,t2_1_a)
+
+               s[s_aba:f_aba] += temp.reshape(-1)
+
+
+
+
+               temp_1 = np.einsum('i,jbil->jbl',r_a, v2e_ovoo_a)
+               temp_2 = np.einsum('i,jbil->jbl',r_a, v2e_ovoo_ab)
+              
+               temp  = np.einsum('jbl,klab->ajk',temp_1,t2_1_a)
+               temp += np.einsum('jbl,klab->ajk',temp_2,t2_1_ab)
+
+               s[s_aaa:f_aaa] -= temp[:,ij_ind_a[0],ij_ind_a[1] ].reshape(-1)
+              
+               #temp  = np.einsum('jbl,klab->ajk',temp_2,t2_1_b)
+               #temp  += np.einsum('jbl,klab->ajk',temp_1,t2_1_ab)
+
+               #s[s_bab:f_bab] -= temp.reshape(-1)
+
+
+
+               temp  = -np.einsum('i,bjil->jbl',r_a,v2e_vooo_ab)
+               temp_1 = -np.einsum('jbl,klba->ajk',temp,t2_1_ab)
+
+               s[s_bab:f_bab] -= temp_1.reshape(-1)
+
+
+               temp_1 = np.einsum('i,jbil->jbl',r_b, v2e_ovoo_b)
+               #temp_2 = np.einsum('i,jbil->jbl',r_b, v2e_ovoo_ab)
+               temp_2 = np.einsum('i,bjli->jbl',r_b, v2e_vooo_ab)
+              
+               temp  = np.einsum('jbl,klab->ajk',temp_1,t2_1_b)
+               #temp += np.einsum('jbl,klab->ajk',temp_2,t2_1_ab)
+               temp += np.einsum('jbl,lkba->ajk',temp_2,t2_1_ab)
+
+               s[s_bbb:f_bbb] -= temp[:,ij_ind_b[0],ij_ind_b[1] ].reshape(-1)
+              
+               #temp  = np.einsum('jbl,klab->ajk',temp_2,t2_1_a)
+               #temp  += np.einsum('jbl,klab->ajk',temp_1,t2_1_ab)
+
+               #s[s_aba:f_aba] -= temp.reshape(-1)
+
+
+               temp  = -np.einsum('i,jbli->jbl',r_b,v2e_ovoo_ab)
+               temp_1 = -np.einsum('jbl,lkab->ajk',temp,t2_1_ab)
+
+               s[s_aba:f_aba] -= temp_1.reshape(-1)
+
 
         s *= -1.0
 
