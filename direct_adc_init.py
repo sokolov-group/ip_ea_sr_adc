@@ -159,9 +159,9 @@ def transform_antisymmetrize_integrals(mf,mo):
     v2e_a = v2e_a.transpose(0,2,1,3).copy()
 
     if (mo_1_a is mo_2_a):
-        v2e_a -= v2e_a.transpose(1,0,2,3)
+        v2e_a -= v2e_a.transpose(1,0,2,3).copy()
     elif (mo_3_a is mo_4_a):
-        v2e_a -= v2e_a.transpose(0,1,3,2)
+        v2e_a -= v2e_a.transpose(0,1,3,2).copy()
     else:
         v2e_temp = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_4_a, mo_2_a, mo_3_a), compact=False)
         v2e_temp = v2e_temp.reshape(mo_1_a.shape[1], mo_4_a.shape[1], mo_2_a.shape[1], mo_3_a.shape[1])
@@ -172,9 +172,9 @@ def transform_antisymmetrize_integrals(mf,mo):
     v2e_b = v2e_b.transpose(0,2,1,3).copy()
 
     if (mo_1_b is mo_2_b):
-        v2e_b -= v2e_b.transpose(1,0,2,3)
+        v2e_b -= v2e_b.transpose(1,0,2,3).copy()
     elif (mo_3_b is mo_4_b):
-        v2e_b -= v2e_b.transpose(0,1,3,2)
+        v2e_b -= v2e_b.transpose(0,1,3,2).copy()
     else:
         v2e_temp = pyscf.ao2mo.general(mf._eri, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
         v2e_temp = v2e_temp.reshape(mo_1_b.shape[1], mo_4_b.shape[1], mo_2_b.shape[1], mo_3_b.shape[1])
