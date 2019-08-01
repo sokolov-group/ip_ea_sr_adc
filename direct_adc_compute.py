@@ -132,20 +132,20 @@ def conventional(direct_adc):
     precond_ea = None
 
     if direct_adc.IP == True:
-        apply_H_ip, precond_ip, x0 = setup_davidson_ip(direct_adc, t_amp)
+        apply_H_ip, precond_ip, x0_ip = setup_davidson_ip(direct_adc, t_amp)
         
 
     if direct_adc.EA == True:
-        apply_H_ea, precond_ea, x0 = setup_davidson_ea(direct_adc, t_amp)
+        apply_H_ea, precond_ea, x0_ea = setup_davidson_ea(direct_adc, t_amp)
 
 
     # Compute ionization energies using Davidson
 
     if direct_adc.IP == True:
-        E_ip, U_ip = direct_adc.davidson(apply_H_ip, x0, precond_ip, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space)
+        E_ip, U_ip = direct_adc.davidson(apply_H_ip, x0_ip, precond_ip, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space)
 
     if direct_adc.EA == True:
-        E_ea, U_ea = direct_adc.davidson(apply_H_ea, x0, precond_ea, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space)
+        E_ea, U_ea = direct_adc.davidson(apply_H_ea, x0_ea, precond_ea, nroots = direct_adc.nstates, verbose = direct_adc.verbose, max_cycle = direct_adc.max_cycle, max_space = direct_adc.max_space)
 
     if direct_adc.IP == True:
         print ("\n%s ionization energies (a.u.):" % (direct_adc.method))
@@ -158,10 +158,10 @@ def conventional(direct_adc):
     if direct_adc.EA == True:
         print ("\n%s attachment energies (a.u.):" % (direct_adc.method))
         #print (E_ea.reshape(-1, 1))
-        print (-E_ea.reshape(-1, 1))
+        print (E_ea.reshape(-1, 1))
         print ("\n%s attachment energies (eV):" % (direct_adc.method))
         E_ea_ev = E_ea * 27.211606
-        print (-E_ea_ev.reshape(-1, 1))
+        print (E_ea_ev.reshape(-1, 1))
 
 
     # Compute transition moments and spectroscopic factors
@@ -341,6 +341,7 @@ def compute_amplitudes(direct_adc):
         temp = t2_1_b.reshape(nocc_b*nocc_b,nvir_b*nvir_b)
         temp_1 = v2e_vvvv_b[:].reshape(nvir_b*nvir_b,nvir_b*nvir_b)
         t2_2_b = 0.5*np.dot(temp,temp_1.T).reshape(nocc_b,nocc_b,nvir_b,nvir_b)
+        del temp_1
         t2_2_b += 0.5*np.einsum('klij,klab->ijab',v2e_oooo_b,t2_1_b,optimize=True)
 
         temp = np.einsum('bkjc,kica->ijab',v2e_voov_b,t2_1_b,optimize=True) 
@@ -352,6 +353,7 @@ def compute_amplitudes(direct_adc):
         temp = t2_1_ab.reshape(nocc_a*nocc_b,nvir_a*nvir_b)
         temp_1 = v2e_vvvv_ab[:].reshape(nvir_a*nvir_b,nvir_a*nvir_b)
         t2_2_ab = np.dot(temp,temp_1.T).reshape(nocc_a,nocc_b,nvir_a,nvir_b)
+        del temp_1
         t2_2_ab += np.einsum('klij,klab->ijab',v2e_oooo_ab,t2_1_ab,optimize=True)
         
         t2_2_ab += np.einsum('kbcj,kica->ijab',v2e_ovvo_ab,t2_1_a,optimize=True) 
@@ -2386,12 +2388,14 @@ def define_H_ea(direct_adc,t_amp):
                temp = v2e_vvvv_a[:].reshape(nvir_a*nvir_a,nvir_a*nvir_a)
                r_aaa_t = r_aaa_u.reshape(nocc_a,-1)
                temp_1 = np.dot(r_aaa_t,temp.T).reshape(nocc_a,nvir_a,nvir_a)
+               del temp
                temp_1 = temp_1[:,ab_ind_a[0],ab_ind_a[1]]               
                s[s_aaa:f_aaa] += 0.5*temp_1.reshape(-1)
 
                temp = v2e_vvvv_b[:].reshape(nvir_b*nvir_b,nvir_b*nvir_b)
                r_bbb_t = r_bbb_u.reshape(nocc_b,-1)
                temp_1 = np.dot(r_bbb_t,temp.T).reshape(nocc_b,nvir_b,nvir_b)
+               del temp
                temp_1 = temp_1[:,ab_ind_b[0],ab_ind_b[1]]               
                s[s_bbb:f_bbb] += 0.5*temp_1.reshape(-1)
 
@@ -2409,6 +2413,7 @@ def define_H_ea(direct_adc,t_amp):
                temp = v2e_vvvv_ab[:].reshape(nvir_a*nvir_b,nvir_a*nvir_b)
                r_bab_t = r_bab.reshape(nocc_b,-1)
                s[s_bab:f_bab] += np.dot(r_bab_t,temp.T).reshape(-1)
+               del temp
 
                #s[s_aba:f_aba] += np.einsum('yxwz,izw->ixy',v2e_vvvv_ab,r_aba,optimize = True).reshape(-1)
                #temp = v2e_vvvv_ab.transpose(3,2,1,0) 
@@ -2420,6 +2425,7 @@ def define_H_ea(direct_adc,t_amp):
                r_aba_t = r_aba.transpose(0,2,1).reshape(nocc_a,-1)
                temp_1 = np.dot(r_aba_t,temp.T).reshape(nocc_a, nvir_a,nvir_b)
                s[s_aba:f_aba] += temp_1.transpose(0,2,1).copy().reshape(-1)
+               del temp
 
                temp = 0.5*np.einsum('yjzi,jzx->ixy',v2e_vovo_a,r_aaa_u,optimize = True)
                temp +=0.5*np.einsum('yjiz,jxz->ixy',v2e_voov_ab,r_bab,optimize = True)
