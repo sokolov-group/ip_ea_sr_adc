@@ -17,8 +17,8 @@ def kernel(direct_adc):
     print ("Number of electrons:               ", direct_adc.nelec)
     print ("Number of alpha electrons:         ", direct_adc.nelec_a)
     print ("Number of beta electrons:          ", direct_adc.nelec_b)
-    print ("Number of alpha basis functions:         ", direct_adc.nmo)
-    print ("Number of beta basis functions:         ", direct_adc.nmo)
+    print ("Number of alpha basis functions:         ", direct_adc.nmo_a)
+    print ("Number of beta basis functions:         ", direct_adc.nmo_b)
     print ("Number of alpha occupied orbitals: ", direct_adc.nocc_a)
     print ("Number of beta occupied orbitals:  ", direct_adc.nocc_b)
     print ("Number of alpha virtual orbitals:  ", direct_adc.nvir_a)
@@ -67,10 +67,16 @@ def kernel(direct_adc):
     #dos,orbital = calc_density_of_states(direct_adc, apply_H,precond,t_amp)
     dos_ip, dos_ea = calc_density_of_states(direct_adc, apply_H_ip, apply_H_ea, precond_ip, precond_ea,t_amp)
 
-    if direct_adc.IP == True:
+    if direct_adc.IP == True and direct_adc.EA == False:
         np.savetxt('density_of_states_ip.txt', dos_ip, fmt='%.8f')
-    if direct_adc.EA == True:
+    if direct_adc.EA == True and direct_adc.IP == False:
         np.savetxt('density_of_states_ea.txt', dos_ea, fmt='%.8f')
+
+    density  = [sum(x) for x in zip(dos_ip, dos_ea)]
+
+
+    if direct_adc.IP == True and direct_adc.EA == True:
+        np.savetxt('total_density_of_states.txt',density, fmt='%.8f') 
 
 
     #np.savetxt('orbital_info_3s_adc3', orbital, fmt='%.8f')
@@ -79,7 +85,7 @@ def kernel(direct_adc):
     print ("Total time:", (time.time() - t_start, "sec"))
     
 ###########################################
-# Computing conventional IP-ADC #
+# Computing conventional IP/EA-ADC #
 ###########################################
 #@profile
 def conventional(direct_adc):
@@ -151,10 +157,11 @@ def conventional(direct_adc):
 
     if direct_adc.EA == True:
         print ("\n%s attachment energies (a.u.):" % (direct_adc.method))
-        print (E_ea.reshape(-1, 1))
+        #print (E_ea.reshape(-1, 1))
+        print (-E_ea.reshape(-1, 1))
         print ("\n%s attachment energies (eV):" % (direct_adc.method))
         E_ea_ev = E_ea * 27.211606
-        print (E_ea_ev.reshape(-1, 1))
+        print (-E_ea_ev.reshape(-1, 1))
 
 
     # Compute transition moments and spectroscopic factors
@@ -319,7 +326,6 @@ def compute_amplitudes(direct_adc):
 
         #print("Calculating additional amplitudes for adc(2)-e and adc(3)")
 
-        #t2_2_a = 0.5*np.einsum('abcd,ijcd->ijab',v2e_vvvv_a,t2_1_a,optimize=True)
         temp = t2_1_a.reshape(nocc_a*nocc_a,nvir_a*nvir_a)
         temp_1 = v2e_vvvv_a.reshape(nvir_a*nvir_a,nvir_a*nvir_a)
         t2_2_a = 0.5*np.dot(temp,temp_1.T).reshape(nocc_a,nocc_a,nvir_a,nvir_a)
@@ -331,7 +337,6 @@ def compute_amplitudes(direct_adc):
         t2_2_a += temp - temp.transpose(1,0,2,3) - temp.transpose(0,1,3,2) + temp.transpose(1,0,3,2)
         t2_2_a += temp_1 - temp_1.transpose(1,0,2,3) - temp_1.transpose(0,1,3,2) + temp_1.transpose(1,0,3,2)
         
-        #t2_2_b = 0.5*np.einsum('abcd,ijcd->ijab',v2e_vvvv_b,t2_1_b,optimize=True)
         temp = t2_1_b.reshape(nocc_b*nocc_b,nvir_b*nvir_b)
         temp_1 = v2e_vvvv_b.reshape(nvir_b*nvir_b,nvir_b*nvir_b)
         t2_2_b = 0.5*np.dot(temp,temp_1.T).reshape(nocc_b,nocc_b,nvir_b,nvir_b)
@@ -343,7 +348,6 @@ def compute_amplitudes(direct_adc):
         t2_2_b += temp - temp.transpose(1,0,2,3) - temp.transpose(0,1,3,2) + temp.transpose(1,0,3,2)
         t2_2_b += temp_1 - temp_1.transpose(1,0,2,3) - temp_1.transpose(0,1,3,2) + temp_1.transpose(1,0,3,2)
 
-        #t2_2_ab = np.einsum('abcd,ijcd->ijab',v2e_vvvv_ab,t2_1_ab,optimize=True)
         temp = t2_1_ab.reshape(nocc_a*nocc_b,nvir_a*nvir_b)
         temp_1 = v2e_vvvv_ab.reshape(nvir_a*nvir_b,nvir_a*nvir_b)
         t2_2_ab = np.dot(temp,temp_1.T).reshape(nocc_a,nocc_b,nvir_a,nvir_b)
@@ -497,7 +501,6 @@ def compute_amplitudes(direct_adc):
         t1_3_a -= np.einsum('lmef,efid,lmad->ia',t2_1_ab,v2e_vvov_ab,t2_1_ab,optimize=True)
         
         t1_3_b -= 0.25*np.einsum('lmef,efid,lmad->ia',t2_1_b,v2e_vvov_b,t2_1_b,optimize=True)
-        #t1_3_b -= np.einsum('mlfe,fedi,mlda->ia',t2_1_ab,v2e_vvvo_ab,t2_1_ab,optimize=True)
         temp = t2_1_ab.reshape(nocc_a*nocc_b,-1)
         temp_1 = v2e_vvvo_ab.reshape(nvir_a*nvir_b,-1)
         temp_2 = t2_1_ab.reshape(nocc_a*nocc_b*nvir_a,-1)
@@ -535,7 +538,8 @@ def compute_mp2_energy(direct_adc, t_amp):
 
 def calc_density_of_states(direct_adc,apply_H_ip,apply_H_ea,precond_ip,precond_ea,t_amp):
 
-	nmo = direct_adc.nmo
+	nmo_a = direct_adc.nmo_a
+	nmo_b = direct_adc.nmo_b
 	nocc_a = direct_adc.nocc_a
 	freq_range = direct_adc.freq_range	
 	broadening = direct_adc.broadening
@@ -543,15 +547,16 @@ def calc_density_of_states(direct_adc,apply_H_ip,apply_H_ea,precond_ip,precond_e
 
 	freq_range = np.arange(freq_range[0],freq_range[1],step)
 
-	k = np.zeros((nmo,nmo))
-	gf_ip_a = np.array(k,dtype = complex)
-	gf_ip_a.imag = k
-	gf_ip_b = np.array(k,dtype = complex)
-	gf_ip_b.imag = k
-	gf_ea_a = np.array(k,dtype = complex)
-	gf_ea_a.imag = k
-	gf_ea_b = np.array(k,dtype = complex)
-	gf_ea_b.imag = k
+	k_a = np.zeros((nmo_a,nmo_a))
+	k_b = np.zeros((nmo_b,nmo_b))
+	gf_ip_a = np.array(k_a,dtype = complex)
+	gf_ip_a.imag = k_a
+	gf_ip_b = np.array(k_b,dtype = complex)
+	gf_ip_b.imag = k_b
+	gf_ea_a = np.array(k_a,dtype = complex)
+	gf_ea_a.imag = k_a
+	gf_ea_b = np.array(k_b,dtype = complex)
+	gf_ea_b.imag = k_b
 
 	gf_ip_a_trace= []
 	gf_ip_b_trace= []
@@ -568,7 +573,7 @@ def calc_density_of_states(direct_adc,apply_H_ip,apply_H_ea,precond_ip,precond_e
 		omega = freq
 		iomega = freq + broadening*1j
 
-		for orb in range(nmo):
+		for orb in range(nmo_a):
                        
                         # Calculate GF for IP
                         if direct_adc.IP == True:
@@ -577,11 +582,6 @@ def calc_density_of_states(direct_adc,apply_H_ip,apply_H_ea,precond_ip,precond_e
                         
                              T_a = calculate_T_ip(direct_adc, t_amp, orb, spin = "alpha")
                              gf_ip_a[orb,orb] = calculate_GF_ip(direct_adc,apply_H_ip,precond_ip,omega,orb,T_a)
-			
-		              # Calculate T and GF for beta spin	
-			
-                             T_b = calculate_T_ip(direct_adc, t_amp, orb, spin = "beta")
-                             gf_ip_b[orb,orb] = calculate_GF_ip(direct_adc,apply_H_ip,precond_ip,omega,orb,T_b)
 
                         # Calculate GF for EA
                         if direct_adc.EA == True:
@@ -590,16 +590,24 @@ def calc_density_of_states(direct_adc,apply_H_ip,apply_H_ea,precond_ip,precond_e
                         
                              T_a = calculate_T_ea(direct_adc, t_amp, orb, spin = "alpha")
                              gf_ea_a[orb,orb] = calculate_GF_ea(direct_adc,apply_H_ea,precond_ea,omega,orb,T_a)
+
+		for orb in range(nmo_b):
+                       
+                        # Calculate GF for IP
+                        if direct_adc.IP == True:
+
+		              # Calculate T and GF for beta spin	
 			
+                             T_b = calculate_T_ip(direct_adc, t_amp, orb, spin = "beta")
+                             gf_ip_b[orb,orb] = calculate_GF_ip(direct_adc,apply_H_ip,precond_ip,omega,orb,T_b)
+
+                        # Calculate GF for EA
+                        if direct_adc.EA == True:
+
 		              # Calculate T and GF for beta spin	
 			
                              T_b = calculate_T_ea(direct_adc, t_amp, orb, spin = "beta")
                              gf_ea_b[orb,orb] = calculate_GF_ea(direct_adc,apply_H_ea,precond_ea,omega,orb,T_b)
-
-                        # Compute orbital contribution to density of states
-			
-                        #if orb <=13 :
-                        #    orbital.append(gf_a[orb,orb]+ gf_b[orb,orb])
 
 		gf_ip_a_trace = -(1/(np.pi))*np.trace(gf_ip_a.imag)
 		gf_ip_b_trace = -(1/(np.pi))*np.trace(gf_ip_b.imag)
@@ -607,7 +615,6 @@ def calc_density_of_states(direct_adc,apply_H_ip,apply_H_ea,precond_ip,precond_e
 		gf_ea_b_trace = -(1/(np.pi))*np.trace(gf_ea_b.imag)
 		gf_ip_trace = np.sum([gf_ip_a_trace,gf_ip_b_trace])
 		gf_ea_trace = np.sum([gf_ea_a_trace,gf_ea_b_trace])
-		#gf_ea_trace = gf_ea_a_trace
 		gf_ip_im_trace.append(gf_ip_trace)
 		gf_ea_im_trace.append(gf_ea_trace)
 
