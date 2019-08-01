@@ -327,8 +327,9 @@ def compute_amplitudes(direct_adc):
         #print("Calculating additional amplitudes for adc(2)-e and adc(3)")
 
         temp = t2_1_a.reshape(nocc_a*nocc_a,nvir_a*nvir_a)
-        temp_1 = v2e_vvvv_a.reshape(nvir_a*nvir_a,nvir_a*nvir_a)
+        temp_1 = v2e_vvvv_a[:].reshape(nvir_a*nvir_a,nvir_a*nvir_a)
         t2_2_a = 0.5*np.dot(temp,temp_1.T).reshape(nocc_a,nocc_a,nvir_a,nvir_a)
+        del temp_1
         t2_2_a += 0.5*np.einsum('klij,klab->ijab',v2e_oooo_a,t2_1_a,optimize=True)
                  
         temp = np.einsum('bkjc,kica->ijab',v2e_voov_a,t2_1_a,optimize=True) 
@@ -338,7 +339,7 @@ def compute_amplitudes(direct_adc):
         t2_2_a += temp_1 - temp_1.transpose(1,0,2,3) - temp_1.transpose(0,1,3,2) + temp_1.transpose(1,0,3,2)
         
         temp = t2_1_b.reshape(nocc_b*nocc_b,nvir_b*nvir_b)
-        temp_1 = v2e_vvvv_b.reshape(nvir_b*nvir_b,nvir_b*nvir_b)
+        temp_1 = v2e_vvvv_b[:].reshape(nvir_b*nvir_b,nvir_b*nvir_b)
         t2_2_b = 0.5*np.dot(temp,temp_1.T).reshape(nocc_b,nocc_b,nvir_b,nvir_b)
         t2_2_b += 0.5*np.einsum('klij,klab->ijab',v2e_oooo_b,t2_1_b,optimize=True)
 
@@ -349,7 +350,7 @@ def compute_amplitudes(direct_adc):
         t2_2_b += temp_1 - temp_1.transpose(1,0,2,3) - temp_1.transpose(0,1,3,2) + temp_1.transpose(1,0,3,2)
 
         temp = t2_1_ab.reshape(nocc_a*nocc_b,nvir_a*nvir_b)
-        temp_1 = v2e_vvvv_ab.reshape(nvir_a*nvir_b,nvir_a*nvir_b)
+        temp_1 = v2e_vvvv_ab[:].reshape(nvir_a*nvir_b,nvir_a*nvir_b)
         t2_2_ab = np.dot(temp,temp_1.T).reshape(nocc_a,nocc_b,nvir_a,nvir_b)
         t2_2_ab += np.einsum('klij,klab->ijab',v2e_oooo_ab,t2_1_ab,optimize=True)
         
@@ -2382,13 +2383,13 @@ def define_H_ea(direct_adc,t_amp):
                #r_aaa_t = r_aaa_u.reshape(nocc_a,-1)
                #s[s_aaa:f_aaa] += 0.5*np.dot(r_aaa_t,temp.T).reshape(-1)
 
-               temp = v2e_vvvv_a.reshape(nvir_a*nvir_a,nvir_a*nvir_a)
+               temp = v2e_vvvv_a[:].reshape(nvir_a*nvir_a,nvir_a*nvir_a)
                r_aaa_t = r_aaa_u.reshape(nocc_a,-1)
                temp_1 = np.dot(r_aaa_t,temp.T).reshape(nocc_a,nvir_a,nvir_a)
                temp_1 = temp_1[:,ab_ind_a[0],ab_ind_a[1]]               
                s[s_aaa:f_aaa] += 0.5*temp_1.reshape(-1)
 
-               temp = v2e_vvvv_b.reshape(nvir_b*nvir_b,nvir_b*nvir_b)
+               temp = v2e_vvvv_b[:].reshape(nvir_b*nvir_b,nvir_b*nvir_b)
                r_bbb_t = r_bbb_u.reshape(nocc_b,-1)
                temp_1 = np.dot(r_bbb_t,temp.T).reshape(nocc_b,nvir_b,nvir_b)
                temp_1 = temp_1[:,ab_ind_b[0],ab_ind_b[1]]               
@@ -2405,7 +2406,7 @@ def define_H_ea(direct_adc,t_amp):
 
                #s[s_bab:f_bab] += np.einsum('xyzw,izw->ixy',v2e_vvvv_ab,r_bab,optimize = True).reshape(-1)
                #s[s_bab:f_bab] += np.einsum('xyzw,izw->ixy',v2e_vvvv_ab,r_bab).reshape(-1)
-               temp = v2e_vvvv_ab.reshape(nvir_a*nvir_b,nvir_a*nvir_b)
+               temp = v2e_vvvv_ab[:].reshape(nvir_a*nvir_b,nvir_a*nvir_b)
                r_bab_t = r_bab.reshape(nocc_b,-1)
                s[s_bab:f_bab] += np.dot(r_bab_t,temp.T).reshape(-1)
 
@@ -2415,7 +2416,7 @@ def define_H_ea(direct_adc,t_amp):
                #r_aba_t = r_aba.reshape(nocc_a,-1)
                #s[s_aba:f_aba] += np.dot(r_aba_t,temp).reshape(-1)
 
-               temp = v2e_vvvv_ab.reshape(nvir_a*nvir_b,nvir_a*nvir_b)
+               temp = v2e_vvvv_ab[:].reshape(nvir_a*nvir_b,nvir_a*nvir_b)
                r_aba_t = r_aba.transpose(0,2,1).reshape(nocc_a,-1)
                temp_1 = np.dot(r_aba_t,temp.T).reshape(nocc_a, nvir_a,nvir_b)
                s[s_aba:f_aba] += temp_1.transpose(0,2,1).copy().reshape(-1)

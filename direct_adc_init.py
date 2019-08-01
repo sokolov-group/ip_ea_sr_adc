@@ -4,6 +4,7 @@ from functools import reduce
 import pyscf.ao2mo
 import pyscf.lib
 import direct_adc_spin_integrated.direct_adc_compute as direct_adc_compute
+import direct_adc_spin_integrated.disk_helper as disk_helper
 
 
 class DirectADC:
@@ -71,7 +72,7 @@ class DirectADC:
 
         else:                                                                                                                                                                     
             raise Exception("ADC code is not implemented for this reference")                                                                                                     
-                                                                                                                                                                                
+
         # Direct ADC specific variables
         self.nstates = 10
         self.step = 0.01
@@ -83,9 +84,9 @@ class DirectADC:
         self.algorithm = "dynamical" # dynamical vs conventional vs cvs
 
         # IP or EA flags
-
         self.EA = True
         self.IP = True
+        self.disk = False
 
         # Davidson and CVS specific variables
         self.n_core = 6 # number of core spatial orbitals
@@ -93,49 +94,22 @@ class DirectADC:
         self.max_cycle = 150
         self.max_space = 12
 
-        # Integral transformation
-        h1e_ao = mf.get_hcore()
-        self.h1e_a = reduce(np.dot, (self.mo_a.T, h1e_ao, self.mo_a))
-        self.h1e_b = reduce(np.dot, (self.mo_b.T, h1e_ao, self.mo_b))
-
         self.davidson = pyscf.lib.linalg_helper.davidson
 
         self.v2e = lambda:None
 
-#        print(v2e_vvvv_a.flags)
-#        print(v2e_vvvv_ab.flags)
-#        print(v2e_vvvv_b.flags)
+        self.h1e_ao = mf.get_hcore()
 
-        occ_a = self.mo_a[:,:self.nocc_a].copy()
-        occ_b = self.mo_b[:,:self.nocc_b].copy()
-        vir_a = self.mo_a[:,self.nocc_a:].copy()
-        vir_b = self.mo_b[:,self.nocc_b:].copy()
+        if mf._eri is None:
+            self.v2e_ao = mf.mol
+        else:
+            self.v2e_ao = mf._eri
 
-        occ = occ_a, occ_b
-        vir = vir_a, vir_b
-
-        self.v2e.oovv = transform_antisymmetrize_integrals(mf, (occ,occ,vir,vir))
-        self.v2e.vvvv = transform_antisymmetrize_integrals(mf, (vir,vir,vir,vir))
-        self.v2e.oooo = transform_antisymmetrize_integrals(mf, (occ,occ,occ,occ))
-        self.v2e.voov = transform_antisymmetrize_integrals(mf, (vir,occ,occ,vir))
-        self.v2e.ooov = transform_antisymmetrize_integrals(mf, (occ,occ,occ,vir))
-        self.v2e.vovv = transform_antisymmetrize_integrals(mf, (vir,occ,vir,vir))
-        self.v2e.vvoo = transform_antisymmetrize_integrals(mf, (vir,vir,occ,occ))
-        self.v2e.vvvo = transform_antisymmetrize_integrals(mf, (vir,vir,vir,occ))
-        self.v2e.ovoo = transform_antisymmetrize_integrals(mf, (occ,vir,occ,occ))
-        self.v2e.ovov = transform_antisymmetrize_integrals(mf, (occ,vir,occ,vir))
-        self.v2e.vooo = transform_antisymmetrize_integrals(mf, (vir,occ,occ,occ))
-        self.v2e.oovo = transform_antisymmetrize_integrals(mf, (occ,occ,vir,occ))
-        self.v2e.vovo = transform_antisymmetrize_integrals(mf, (vir,occ,vir,occ))
-        self.v2e.vvov = transform_antisymmetrize_integrals(mf, (vir,vir,occ,vir))
-        self.v2e.ovvo = transform_antisymmetrize_integrals(mf, (occ,vir,vir,occ))
-        self.v2e.ovvv = transform_antisymmetrize_integrals(mf, (occ,vir,vir,vir))
-        
-        #print (np.linalg.norm(self.v2e.oovv[0]))
-        #exit()
 
     def kernel(self):
 
+        self.transform_integrals()
+        
         if self.algorithm == "dynamical":
             direct_adc_compute.kernel(self)
         elif self.algorithm == "conventional" or self.algorithm == "cvs":
@@ -145,7 +119,45 @@ class DirectADC:
         else:
             raise Exception("Algorithm is not recognized")
 
-def transform_antisymmetrize_integrals(mf,mo):
+        if self.disk:
+            disk_helper.remove_dataset(self.v2e.vvvv[0])
+            disk_helper.remove_dataset(self.v2e.vvvv[1])
+            disk_helper.remove_dataset(self.v2e.vvvv[2])
+
+
+    # Integral transformation
+    def transform_integrals(self):
+        h1e_ao = self.h1e_ao
+        self.h1e_a = reduce(np.dot, (self.mo_a.T, h1e_ao, self.mo_a))
+        self.h1e_b = reduce(np.dot, (self.mo_b.T, h1e_ao, self.mo_b))
+
+        occ_a = self.mo_a[:,:self.nocc_a].copy()
+        occ_b = self.mo_b[:,:self.nocc_b].copy()
+        vir_a = self.mo_a[:,self.nocc_a:].copy()
+        vir_b = self.mo_b[:,self.nocc_b:].copy()
+
+        occ = occ_a, occ_b
+        vir = vir_a, vir_b
+
+        self.v2e.oovv = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,vir,vir))
+        self.v2e.vvvv = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,vir,vir), self.disk)
+        self.v2e.oooo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,occ,occ))
+        self.v2e.voov = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,occ,vir))
+        self.v2e.ooov = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,occ,vir))
+        self.v2e.vovv = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,vir,vir))
+        self.v2e.vvoo = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,occ,occ))
+        self.v2e.vvvo = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,vir,occ))
+        self.v2e.ovoo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,occ,occ))
+        self.v2e.ovov = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,occ,vir))
+        self.v2e.vooo = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,occ,occ))
+        self.v2e.oovo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,vir,occ))
+        self.v2e.vovo = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,vir,occ))
+        self.v2e.vvov = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,occ,vir))
+        self.v2e.ovvo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,vir,occ))
+        self.v2e.ovvv = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,vir,vir))
+
+
+def transform_antisymmetrize_integrals(v2e_ao, mo, disk = False):
 
     mo_1, mo_2, mo_3, mo_4 = mo
 
@@ -155,10 +167,11 @@ def transform_antisymmetrize_integrals(mf,mo):
     mo_4_a, mo_4_b = mo_4
 
     v2e_a = None
-    if mf._eri is None:
-        v2e_a = pyscf.ao2mo.general(mf.mol, (mo_1_a, mo_3_a, mo_2_a, mo_4_a), compact=False)
-    else : 
-        v2e_a = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_3_a, mo_2_a, mo_4_a), compact=False)
+#    if mf._eri is None:
+#        v2e_a = pyscf.ao2mo.general(mf.mol, (mo_1_a, mo_3_a, mo_2_a, mo_4_a), compact=False)
+#    else : 
+#        v2e_a = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_3_a, mo_2_a, mo_4_a), compact=False)
+    v2e_a = pyscf.ao2mo.general(v2e_ao, (mo_1_a, mo_3_a, mo_2_a, mo_4_a), compact=False)
     v2e_a = v2e_a.reshape(mo_1_a.shape[1], mo_3_a.shape[1], mo_2_a.shape[1], mo_4_a.shape[1])
     v2e_a = v2e_a.transpose(0,2,1,3).copy()
 
@@ -168,19 +181,23 @@ def transform_antisymmetrize_integrals(mf,mo):
         v2e_a -= v2e_a.transpose(0,1,3,2).copy()
     else:
         v2e_temp = None
-        if mf._eri is None:
-            v2e_temp = pyscf.ao2mo.general(mf.mol, (mo_1_a, mo_4_a, mo_2_a, mo_3_a), compact=False)
-        else :
-            v2e_temp = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_4_a, mo_2_a, mo_3_a), compact=False)
+#        if mf._eri is None:
+#            v2e_temp = pyscf.ao2mo.general(mf.mol, (mo_1_a, mo_4_a, mo_2_a, mo_3_a), compact=False)
+#        else :
+#            v2e_temp = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_4_a, mo_2_a, mo_3_a), compact=False)
+        v2e_temp = pyscf.ao2mo.general(v2e_ao, (mo_1_a, mo_4_a, mo_2_a, mo_3_a), compact=False)
         v2e_temp = v2e_temp.reshape(mo_1_a.shape[1], mo_4_a.shape[1], mo_2_a.shape[1], mo_3_a.shape[1])
         v2e_a -= v2e_temp.transpose(0,2,3,1).copy()
         del v2e_temp
 
+    v2e_a = disk_helper.dataset(v2e_a) if disk else v2e_a
+
     v2e_b = None
-    if mf._eri is None:
-        v2e_b = pyscf.ao2mo.general(mf.mol, (mo_1_b, mo_3_b, mo_2_b, mo_4_b), compact=False)
-    else:
-        v2e_b = pyscf.ao2mo.general(mf._eri, (mo_1_b, mo_3_b, mo_2_b, mo_4_b), compact=False)
+#    if mf._eri is None:
+#        v2e_b = pyscf.ao2mo.general(mf.mol, (mo_1_b, mo_3_b, mo_2_b, mo_4_b), compact=False)
+#    else:
+#        v2e_b = pyscf.ao2mo.general(mf._eri, (mo_1_b, mo_3_b, mo_2_b, mo_4_b), compact=False)
+    v2e_b = pyscf.ao2mo.general(v2e_ao, (mo_1_b, mo_3_b, mo_2_b, mo_4_b), compact=False)
     v2e_b = v2e_b.reshape(mo_1_b.shape[1], mo_3_b.shape[1], mo_2_b.shape[1], mo_4_b.shape[1])
     v2e_b = v2e_b.transpose(0,2,1,3).copy()
 
@@ -190,20 +207,26 @@ def transform_antisymmetrize_integrals(mf,mo):
         v2e_b -= v2e_b.transpose(0,1,3,2).copy()
     else:
         v2e_temp = None
-        if mf._eri is None :
-            v2e_temp = pyscf.ao2mo.general(mf.mol, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
-        else : 
-            v2e_temp = pyscf.ao2mo.general(mf._eri, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
+#        if mf._eri is None :
+#            v2e_temp = pyscf.ao2mo.general(mf.mol, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
+#        else : 
+#            v2e_temp = pyscf.ao2mo.general(mf._eri, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
+        v2e_temp = pyscf.ao2mo.general(v2e_ao, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
         v2e_temp = v2e_temp.reshape(mo_1_b.shape[1], mo_4_b.shape[1], mo_2_b.shape[1], mo_3_b.shape[1])
         v2e_b -= v2e_temp.transpose(0,2,3,1).copy()
         del v2e_temp
 
+    v2e_b = disk_helper.dataset(v2e_b) if disk else v2e_b
+
     v2e_ab = None
-    if mf._eri is None :
-        v2e_ab = pyscf.ao2mo.general(mf.mol, (mo_1_a, mo_3_a, mo_2_b, mo_4_b), compact=False)
-    else :
-        v2e_ab = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_3_a, mo_2_b, mo_4_b), compact=False)
+#    if mf._eri is None :
+#        v2e_ab = pyscf.ao2mo.general(mf.mol, (mo_1_a, mo_3_a, mo_2_b, mo_4_b), compact=False)
+#    else :
+#        v2e_ab = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_3_a, mo_2_b, mo_4_b), compact=False)
+    v2e_ab = pyscf.ao2mo.general(v2e_ao, (mo_1_a, mo_3_a, mo_2_b, mo_4_b), compact=False)
     v2e_ab = v2e_ab.reshape(mo_1_a.shape[1], mo_3_a.shape[1], mo_2_b.shape[1], mo_4_b.shape[1])
     v2e_ab = v2e_ab.transpose(0,2,1,3).copy()
+
+    v2e_ab = disk_helper.dataset(v2e_ab) if disk else v2e_ab
 
     return (v2e_a, v2e_ab, v2e_b)
