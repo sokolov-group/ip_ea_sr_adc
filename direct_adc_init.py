@@ -82,6 +82,7 @@ class DirectADC:
         self.maxiter = 200
         self.method = "adc(3)"
         self.algorithm = "dynamical" # dynamical vs conventional vs cvs
+        self.freq_outer_loop = True #Controls if the frequency or the orbitals form the outer loop
 
         # IP or EA flags
         self.EA = True
@@ -89,7 +90,7 @@ class DirectADC:
         self.disk = False
 
         # Davidson and CVS specific variables
-        self.n_core = 6 # number of core spatial orbitals
+        self.n_core = 5 # number of core spatial orbitals
         self.verbose = 6 
         self.max_cycle = 150
         self.max_space = 12
@@ -144,17 +145,17 @@ class DirectADC:
         self.v2e.oooo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,occ,occ))
         self.v2e.voov = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,occ,vir))
         self.v2e.ooov = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,occ,vir))
-        self.v2e.vovv = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,vir,vir))
+        self.v2e.vovv = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,vir,vir), self.disk)
         self.v2e.vvoo = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,occ,occ))
-        self.v2e.vvvo = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,vir,occ))
+        self.v2e.vvvo = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,vir,occ), self.disk)
         self.v2e.ovoo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,occ,occ))
         self.v2e.ovov = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,occ,vir))
         self.v2e.vooo = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,occ,occ))
         self.v2e.oovo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,vir,occ))
         self.v2e.vovo = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,vir,occ))
-        self.v2e.vvov = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,occ,vir))
+        self.v2e.vvov = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,occ,vir), self.disk)
         self.v2e.ovvo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,vir,occ))
-        self.v2e.ovvv = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,vir,vir))
+        self.v2e.ovvv = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,vir,vir), self.disk)
 
 
 def transform_antisymmetrize_integrals(v2e_ao, mo, disk = False):

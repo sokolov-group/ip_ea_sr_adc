@@ -74,12 +74,8 @@ def kernel(direct_adc):
 
     density  = [sum(x) for x in zip(dos_ip, dos_ea)]
 
-
     if direct_adc.IP == True and direct_adc.EA == True:
         np.savetxt('total_density_of_states.txt',density, fmt='%.8f') 
-
-
-    #np.savetxt('orbital_info_3s_adc3', orbital, fmt='%.8f')
 
     print ("Computation successfully finished")
     print ("Total time:", (time.time() - t_start, "sec"))
@@ -123,7 +119,6 @@ def conventional(direct_adc):
     print ("MP2 correlation energy:  ", e_mp2)
     print ("MP2 total energy:        ", (direct_adc.e_scf + e_mp2), "\n")
 
-
     # Compute the sigma vector,preconditioner and guess vector
 
     apply_H_ip = None
@@ -134,10 +129,8 @@ def conventional(direct_adc):
     if direct_adc.IP == True:
         apply_H_ip, precond_ip, x0_ip = setup_davidson_ip(direct_adc, t_amp)
         
-
     if direct_adc.EA == True:
         apply_H_ea, precond_ea, x0_ea = setup_davidson_ea(direct_adc, t_amp)
-
 
     # Compute ionization energies using Davidson
 
@@ -151,18 +144,16 @@ def conventional(direct_adc):
         print ("\n%s ionization energies (a.u.):" % (direct_adc.method))
         print (E_ip.reshape(-1, 1))
         print ("\n%s ionization energies (eV):" % (direct_adc.method))
-        E_ip_ev = E_ip * 27.211606
+        E_ip_ev = E_ip * 27.211386
         print (E_ip_ev.reshape(-1, 1))
-
 
     if direct_adc.EA == True:
         print ("\n%s attachment energies (a.u.):" % (direct_adc.method))
         #print (E_ea.reshape(-1, 1))
         print (E_ea.reshape(-1, 1))
         print ("\n%s attachment energies (eV):" % (direct_adc.method))
-        E_ea_ev = E_ea * 27.211606
+        E_ea_ev = E_ea * 27.211386
         print (E_ea_ev.reshape(-1, 1))
-
 
     # Compute transition moments and spectroscopic factors
 
@@ -505,11 +496,11 @@ def compute_amplitudes(direct_adc):
         
         t1_3_b -= 0.25*np.einsum('lmef,efid,lmad->ia',t2_1_b,v2e_vvov_b,t2_1_b,optimize=True)
         temp = t2_1_ab.reshape(nocc_a*nocc_b,-1)
-        temp_1 = v2e_vvvo_ab.reshape(nvir_a*nvir_b,-1)
+        temp_1 = v2e_vvvo_ab[:].reshape(nvir_a*nvir_b,-1)
         temp_2 = t2_1_ab.reshape(nocc_a*nocc_b*nvir_a,-1)
         int_1 = np.dot(temp,temp_1).reshape(nocc_a*nocc_b*nvir_a,-1)
         t1_3_b -= np.dot(int_1.T,temp_2).reshape(nocc_b,nvir_b) 
-        
+        del temp_1
         t1_3_a = t1_3_a/D1_a
         t1_3_b = t1_3_b/D1_b
     
@@ -522,7 +513,6 @@ def compute_amplitudes(direct_adc):
 ###########################################
 # Calculate mp2 energy  #
 ########################################### 
-##@profile
 def compute_mp2_energy(direct_adc, t_amp):
 
     v2e_oovv_a, v2e_oovv_ab, v2e_oovv_b = direct_adc.v2e.oovv
@@ -538,7 +528,6 @@ def compute_mp2_energy(direct_adc, t_amp):
 ###########################################
 # Calculate density of states  #
 ########################################### 
-
 def calc_density_of_states(direct_adc,apply_H_ip,apply_H_ea,precond_ip,precond_ea,t_amp):
 
 	nmo_a = direct_adc.nmo_a
@@ -570,58 +559,163 @@ def calc_density_of_states(direct_adc,apply_H_ip,apply_H_ea,precond_ip,precond_e
 	gf_ip_im_trace = [] 
 	gf_ea_im_trace = [] 
 	orbital = []
-        
-	for freq in freq_range:
-       
-		omega = freq
-		iomega = freq + broadening*1j
+	freq_p = len(freq_range)
+
+	closed_shell = False
+	if direct_adc.nelec_a == direct_adc.nelec_b :
+	    closed_shell = True
+	
+	if direct_adc.freq_outer_loop:
+	
+	    for freq in freq_range:
+	    
+	    	omega = freq
+	    	iomega = freq + broadening*1j
+	    
+	    	for orb in range(nmo_a):
+	                    r_guess = None
+	                    # Calculate GF for IP
+	                    if direct_adc.IP == True:
+	    
+	    	             # Calculate T and GF for alpha spin	
+	                    
+	                         T_a = calculate_T_ip(direct_adc, t_amp, orb, spin = "alpha")
+	                         gf_ip_a[orb,orb] = calculate_GF_ip(direct_adc,apply_H_ip,precond_ip,omega,orb,T_a,r_guess)
+	    
+	                    # Calculate GF for EA
+	                    if direct_adc.EA == True:
+	    
+	    	             # Calculate T and GF for alpha spin	
+	                    
+	                         T_a = calculate_T_ea(direct_adc, t_amp, orb, spin = "alpha")
+	                         gf_ea_a[orb,orb] = calculate_GF_ea(direct_adc,apply_H_ea,precond_ea,omega,orb,T_a,r_guess)
+	    
+	    	if closed_shell == True :
+	    
+	    	    gf_ip_a_trace = -(1/(np.pi))*np.trace(gf_ip_a.imag)
+	    	    gf_ea_a_trace = -(1/(np.pi))*np.trace(gf_ea_a.imag)
+	    	    gf_ip_trace = 2 * gf_ip_a_trace
+	    	    gf_ea_trace = 2 * gf_ea_a_trace
+	    	    gf_ip_im_trace.append(gf_ip_trace)
+	    	    gf_ea_im_trace.append(gf_ea_trace)
+
+	    	if closed_shell == False : 
+	    
+	    	    for orb in range(nmo_b):
+	                        r_guess = None
+	                        # Calculate GF for IP
+	                        if direct_adc.IP == True:
+	    
+	    	                  # Calculate T and GF for beta spin	
+	    	    	
+	                             T_b = calculate_T_ip(direct_adc, t_amp, orb, spin = "beta")
+	                             gf_ip_b[orb,orb] = calculate_GF_ip(direct_adc,apply_H_ip,precond_ip,omega,orb,T_b,r_guess)
+	    
+	                        # Calculate GF for EA
+	                        if direct_adc.EA == True:
+	    
+	    	                  # Calculate T and GF for beta spin	
+	    	    	
+	                             T_b = calculate_T_ea(direct_adc, t_amp, orb, spin = "beta")
+	                             gf_ea_b[orb,orb] = calculate_GF_ea(direct_adc,apply_H_ea,precond_ea,omega,orb,T_b,r_guess)
+	    
+	    	    gf_ip_a_trace = -(1/(np.pi))*np.trace(gf_ip_a.imag)
+	    	    gf_ip_b_trace = -(1/(np.pi))*np.trace(gf_ip_b.imag)
+	    	    gf_ea_a_trace = -(1/(np.pi))*np.trace(gf_ea_a.imag)
+	    	    gf_ea_b_trace = -(1/(np.pi))*np.trace(gf_ea_b.imag)
+	    	    gf_ip_trace = np.sum([gf_ip_a_trace,gf_ip_b_trace])
+	    	    gf_ea_trace = np.sum([gf_ea_a_trace,gf_ea_b_trace])
+	    	    gf_ip_im_trace.append(gf_ip_trace)
+	    	    gf_ea_im_trace.append(gf_ea_trace)
+	
+	    return gf_ip_im_trace,gf_ea_im_trace         
+	
+	else:
+		k_a = np.zeros((nmo_a,freq_p))
+		k_b = np.zeros((nmo_b,freq_p))
+		gf_ip_a_f = np.array(k_a,dtype = complex)
+		gf_ip_a_f.imag = k_a
+		gf_ip_b_f = np.array(k_b,dtype = complex)
+		gf_ip_b_f.imag = k_b
+		gf_ea_a_f = np.array(k_a,dtype = complex)
+		gf_ea_a_f.imag = k_a
+		gf_ea_b_f = np.array(k_b,dtype = complex)
+		gf_ea_b_f.imag = k_b
+		gf_ip_a = []
+		gf_ea_a = []
 
 		for orb in range(nmo_a):
-                       
-                        # Calculate GF for IP
-                        if direct_adc.IP == True:
-
-		             # Calculate T and GF for alpha spin	
-                        
-                             T_a = calculate_T_ip(direct_adc, t_amp, orb, spin = "alpha")
-                             gf_ip_a[orb,orb] = calculate_GF_ip(direct_adc,apply_H_ip,precond_ip,omega,orb,T_a)
-
-                        # Calculate GF for EA
-                        if direct_adc.EA == True:
-
-		             # Calculate T and GF for alpha spin	
-                        
-                             T_a = calculate_T_ea(direct_adc, t_amp, orb, spin = "alpha")
-                             gf_ea_a[orb,orb] = calculate_GF_ea(direct_adc,apply_H_ea,precond_ea,omega,orb,T_a)
-
-		for orb in range(nmo_b):
-                       
-                        # Calculate GF for IP
-                        if direct_adc.IP == True:
-
-		              # Calculate T and GF for beta spin	
+	
+			r_guess_ip = None    
+			r_guess_ea = None    
+			for freq in range(freq_p):
 			
-                             T_b = calculate_T_ip(direct_adc, t_amp, orb, spin = "beta")
-                             gf_ip_b[orb,orb] = calculate_GF_ip(direct_adc,apply_H_ip,precond_ip,omega,orb,T_b)
+				omega = freq_range[freq]
+				iomega = freq_range[freq] + broadening*1j
 
-                        # Calculate GF for EA
-                        if direct_adc.EA == True:
+                		# Calculate GF for IP
+				if direct_adc.IP == True:
+				# Calculate T and GF for alpha spin	
+				
+				     T_a = calculate_T_ip(direct_adc, t_amp, orb, spin = "alpha")
+				     gf_ip_a_f[orb,freq],r_guess_ip = calculate_GF_ip(direct_adc,apply_H_ip,precond_ip,omega,orb,T_a,r_guess_ip)
+				
+				# Calculate GF for EA
+				if direct_adc.EA == True:
+				
+				 # Calculate T and GF for alpha spin	
+				
+				     T_a = calculate_T_ea(direct_adc, t_amp, orb, spin = "alpha")
+				     gf_ea_a_f[orb,freq],r_guess_ea = calculate_GF_ea(direct_adc,apply_H_ea,precond_ea,omega,orb,T_a,r_guess_ea)
 
-		              # Calculate T and GF for beta spin	
+		gf_ip_a = np.sum(gf_ip_a_f,axis=0)
+		gf_ea_a = np.sum(gf_ea_a_f,axis=0)
+
+		if closed_shell == True :
+
+			gf_ip_a_trace = -(1/(np.pi))*(gf_ip_a.imag)
+			gf_ea_a_trace = -(1/(np.pi))*(gf_ea_a.imag)
+			gf_ip_im_trace = 2 * gf_ip_a_trace
+			gf_ea_im_trace = 2 * gf_ea_a_trace
+
+		if closed_shell == False : 
+
+			for orb in range(nmo_b):
 			
-                             T_b = calculate_T_ea(direct_adc, t_amp, orb, spin = "beta")
-                             gf_ea_b[orb,orb] = calculate_GF_ea(direct_adc,apply_H_ea,precond_ea,omega,orb,T_b)
+				r_guess_ip = None    
+				r_guess_ea = None    
+				for freq in range(freq_p):
+				
+					omega = freq_range[freq]
+					iomega = freq_range[freq] + broadening*1j
+			
+					# Calculate GF for IP
+					if direct_adc.IP == True:
+					
+					 # Calculate T and GF for alpha spin	
+					
+					     T_b = calculate_T_ip(direct_adc, t_amp, orb, spin = "beta")
+					     gf_ip_b_f[orb,freq],r_guess_ip = calculate_GF_ip(direct_adc,apply_H_ip,precond_ip,omega,orb,T_b,r_guess_ip)
+					
+					# Calculate GF for EA
+					if direct_adc.EA == True:
+					
+					 # Calculate T and GF for alpha spin	
+					
+					     T_b = calculate_T_ea(direct_adc, t_amp, orb, spin = "beta")
+					     gf_ea_b_f[orb,freq],r_guess_ea = calculate_GF_ea(direct_adc,apply_H_ea,precond_ea,omega,orb,T_b,r_guess_ea)
 
-		gf_ip_a_trace = -(1/(np.pi))*np.trace(gf_ip_a.imag)
-		gf_ip_b_trace = -(1/(np.pi))*np.trace(gf_ip_b.imag)
-		gf_ea_a_trace = -(1/(np.pi))*np.trace(gf_ea_a.imag)
-		gf_ea_b_trace = -(1/(np.pi))*np.trace(gf_ea_b.imag)
-		gf_ip_trace = np.sum([gf_ip_a_trace,gf_ip_b_trace])
-		gf_ea_trace = np.sum([gf_ea_a_trace,gf_ea_b_trace])
-		gf_ip_im_trace.append(gf_ip_trace)
-		gf_ea_im_trace.append(gf_ea_trace)
+			gf_ip_b = np.sum(gf_ip_b_f,axis=0)
+			gf_ea_b = np.sum(gf_ea_b_f,axis=0)
 
-	return gf_ip_im_trace,gf_ea_im_trace         
+			gf_ip_a_trace = -(1/(np.pi))*(gf_ip_a.imag)
+			gf_ip_b_trace = -(1/(np.pi))*(gf_ip_b.imag)
+			gf_ea_a_trace = -(1/(np.pi))*(gf_ea_a.imag)
+			gf_ea_b_trace = -(1/(np.pi))*(gf_ea_b.imag)
+			gf_ip_im_trace = np.sum([gf_ip_a_trace,gf_ip_b_trace])
+			gf_ea_im_trace = np.sum([gf_ea_a_trace,gf_ea_b_trace])
+	
+		return gf_ip_im_trace,gf_ea_im_trace         
 
 ##############################################
 # Calculate Transition moments matrix for IP #
@@ -804,7 +898,6 @@ def calculate_T_ip(direct_adc, t_amp, orb, spin=None):
 ###############################################
 # Calculate Transition moments matrix for EA #
 ############################################### 
-#@profile
 def calculate_T_ea(direct_adc, t_amp, orb, spin=None):
 
     method = direct_adc.method
@@ -986,7 +1079,7 @@ def calculate_T_ea(direct_adc, t_amp, orb, spin=None):
 # Calculate Green's Function matrix  #
 ########################################### 
 
-def calculate_GF_ip(direct_adc,apply_H,precond,omega,orb,T):
+def calculate_GF_ip(direct_adc,apply_H,precond,omega,orb,T,r_guess):
 
     method = direct_adc.method
 
@@ -1023,14 +1116,6 @@ def calculate_GF_ip(direct_adc,apply_H,precond,omega,orb,T):
     nvir_a = direct_adc.nvir_a
     nvir_b = direct_adc.nvir_b
 
-    iomega = omega + broadening*1j
-    
-    imag_r = -(np.real(T))/broadening
-
-    sigma = apply_H(imag_r)
-
-    real_r =  (-omega*imag_r  - np.real(sigma))/broadening
-
     n_singles_a = nocc_a
     n_singles_b = nocc_b
     n_doubles_aaa = nocc_a * (nocc_a - 1) * nvir_a // 2
@@ -1040,20 +1125,30 @@ def calculate_GF_ip(direct_adc,apply_H,precond,omega,orb,T):
 
     dim = n_singles_a + n_singles_b + n_doubles_aaa + n_doubles_bab + n_doubles_aba + n_doubles_bbb
 
-    z = np.zeros((dim))
-    new_r = np.array(z,dtype = complex)
-    new_r.imag = z
+    new_r = None
 
-    new_r.real = real_r.copy()
-    new_r.imag = imag_r.copy()
-    
-    new_r = solve_conjugate_gradients(direct_adc,apply_H,precond,T,new_r,omega,orb)
-    
+    if r_guess is None: 
+        imag_r = -(np.real(T))/broadening
+        sigma = apply_H(imag_r)
+        real_r =  (-omega*imag_r  - np.real(sigma))/broadening
+        z = np.zeros((dim))
+        new_r = np.array(z,dtype = complex)
+        new_r.imag = z
+
+        new_r.real = real_r.copy()
+        new_r.imag = imag_r.copy()
+        new_r = solve_conjugate_gradients(direct_adc,apply_H,precond,T,new_r,omega,orb)
+    else : 
+        new_r = solve_conjugate_gradients(direct_adc,apply_H,precond,T,r_guess,omega,orb)
+
     gf = np.dot(T,new_r)
 
-    return gf
-    
-def calculate_GF_ea(direct_adc,apply_H,precond,omega,orb,T):
+    if direct_adc.freq_outer_loop:
+        return gf
+    else : 
+        return gf,new_r    
+
+def calculate_GF_ea(direct_adc,apply_H,precond,omega,orb,T,r_guess):
 
     method = direct_adc.method
 
@@ -1086,31 +1181,30 @@ def calculate_GF_ea(direct_adc,apply_H,precond,omega,orb,T):
 
     broadening = direct_adc.broadening
 
-    iomega = omega + broadening*1j
-    
-    imag_r = -(np.real(T))/broadening
+    new_r = None 
+    if r_guess is None: 
+        imag_r = -(np.real(T))/broadening
+        sigma = apply_H(imag_r)
+        real_r =  (-omega*imag_r  - np.real(sigma))/broadening
+        z = np.zeros((dim))
+        new_r = np.array(z,dtype = complex)
+        new_r.imag = z
 
-    sigma = apply_H(imag_r)
-
-    real_r =  (-omega*imag_r  - np.real(sigma))/broadening
-
-    z = np.zeros((dim))
-    new_r = np.array(z,dtype = complex)
-    new_r.imag = z
-
-    new_r.real = real_r.copy()
-    new_r.imag = imag_r.copy()
-    
-    new_r = solve_conjugate_gradients(direct_adc,apply_H,precond,T,new_r,omega,orb)
-    
+        new_r.real = real_r.copy()
+        new_r.imag = imag_r.copy()
+        new_r = solve_conjugate_gradients(direct_adc,apply_H,precond,T,new_r,omega,orb)
+    else : 
+        new_r = solve_conjugate_gradients(direct_adc,apply_H,precond,T,r_guess,omega,orb)
     gf = np.dot(T,new_r)
 
-    return gf
+    if direct_adc.freq_outer_loop:
+        return gf
+    else : 
+        return gf,new_r    
 
 ###########################################
 # Precompute M_ij block   #
 ########################################### 
-##@profile
 def get_Mij(direct_adc,t_amp):
 
     t_start = time.time()
@@ -1535,7 +1629,6 @@ def define_H_ip(direct_adc,t_amp):
         precond[s_bbb:f_bbb] = temp[:,ij_ind_b[0],ij_ind_b[1]].reshape(-1).copy()
 
     #Calculate sigma vector        
-    ##@profile
     def sigma_(r):
 
         if direct_adc.algorithm == "cvs" or direct_adc.algorithm == "mom_conventional":
@@ -1914,7 +2007,6 @@ def define_H_ip(direct_adc,t_amp):
 #################################################
 ##### Precompute Mab block for EA ###############
 #################################################
-#@profile
 def get_Mab(direct_adc,t_amp):
 
     method = direct_adc.method
@@ -2137,10 +2229,6 @@ def get_Mab(direct_adc,t_amp):
         M_ab_b += np.einsum('lmdb,lnea,dnem->ab',t2_1_ab, t2_1_ab, v2e_vovo_ab, optimize=True)
  
         M_ab_a -= 0.25*np.einsum('mlef,mlbd,adef->ab',t2_1_a, t2_1_a, v2e_vvvv_a, optimize=True)
-        #temp = t2_1_a.reshape(nocc_a*nocc_a,-1)
-        #temp_1 = v2e_vvvv_a.reshape(nvir_a,-1)
-        #int_1 = np.dot(temp.T,temp).reshape(nvir_a,-1)
-        #M_ab_a -= 0.25*np.dot(temp_1,int_1.T) 
         M_ab_a -= np.einsum('mlef,mlbd,adef->ab',t2_1_ab, t2_1_ab, v2e_vvvv_ab, optimize=True)
  
         M_ab_b -= 0.25*np.einsum('mlef,mlbd,adef->ab',t2_1_b, t2_1_b, v2e_vvvv_b, optimize=True)
@@ -2237,11 +2325,11 @@ def define_H_ea(direct_adc,t_amp):
     v2e_oovo_a,v2e_oovo_ab,v2e_oovo_b = direct_adc.v2e.oovo
     v2e_ovvv_a,v2e_ovvv_ab,v2e_ovvv_b = direct_adc.v2e.ovvv
 
-    v2e_vovv_1_a = v2e_vovv_a.copy()[:,:,ab_ind_a[0],ab_ind_a[1]].reshape(nvir_a,-1)
-    v2e_vovv_1_b = v2e_vovv_b.copy()[:,:,ab_ind_b[0],ab_ind_b[1]].reshape(nvir_b,-1)
+    v2e_vovv_1_a = v2e_vovv_a[:][:,:,ab_ind_a[0],ab_ind_a[1]].reshape(nvir_a,-1)
+    v2e_vovv_1_b = v2e_vovv_b[:][:,:,ab_ind_b[0],ab_ind_b[1]].reshape(nvir_b,-1)
     
-    v2e_vovv_2_a = v2e_vovv_a.copy()[:,:,ab_ind_a[0],ab_ind_a[1]]
-    v2e_vovv_2_b = v2e_vovv_b.copy()[:,:,ab_ind_b[0],ab_ind_b[1]]
+    v2e_vovv_2_a = v2e_vovv_a[:][:,:,ab_ind_a[0],ab_ind_a[1]]
+    v2e_vovv_2_b = v2e_vovv_b[:][:,:,ab_ind_b[0],ab_ind_b[1]]
 
     d_i_a = e_occ_a[:,None]
     d_ab_a = e_vir_a[:,None] + e_vir_a
@@ -2297,7 +2385,6 @@ def define_H_ea(direct_adc,t_amp):
     precond[s_bbb:f_bbb] = D_iab_b
 
     #Calculate sigma vector
-    #@profile
     def sigma_(r):
 
         s = None
@@ -2335,14 +2422,9 @@ def define_H_ea(direct_adc,t_amp):
 ############### ADC(2) ibc - a block ############################
 
         s[s_aaa:f_aaa] += np.einsum('aip,a->ip', v2e_vovv_2_a, r_a, optimize = True).reshape(-1)
-        #temp = v2e_vovv_2_a.reshape(nvir_a,-1)
-        #s[s_aaa:f_aaa] += np.dot(r_a,temp)
         s[s_bab:f_bab] += np.einsum('aibc,a->ibc', v2e_vovv_ab, r_a, optimize = True).reshape(-1)
-
         s[s_aba:f_aba] += np.einsum('iacb,a->ibc', v2e_ovvv_ab, r_b, optimize = True).reshape(-1)
         s[s_bbb:f_bbb] += np.einsum('aip,a->ip', v2e_vovv_2_b, r_b, optimize = True).reshape(-1)
-        #temp = v2e_vovv_2_b.reshape(nvir_b,-1)
-        #s[s_bbb:f_bbb] += np.dot(r_b,temp)
 
 ################ ADC(2) iab - jcd block ############################ 
         s[s_aaa:f_aaa] += D_iab_a * r_aaa
@@ -2355,7 +2437,6 @@ def define_H_ea(direct_adc,t_amp):
         if (method == "adc(2)-e" or method == "adc(3)"):
        	
                t2_2_a, t2_2_ab, t2_2_b = t2_2
-
 
                r_aaa = r_aaa.reshape(nocc_a,-1)
                r_bbb = r_bbb.reshape(nocc_b,-1)
@@ -2379,7 +2460,6 @@ def define_H_ea(direct_adc,t_amp):
                #temp = 0.5*np.einsum('yxwz,izw->ixy',v2e_vvvv_a,r_aaa_u ,optimize = True)
                #####temp = -0.5*np.einsum('yxzw,izw->ixy',v2e_vvvv_a,r_aaa_u )
                #s[s_aaa:f_aaa] += temp[:,ab_ind_a[0],ab_ind_a[1]].reshape(-1)
-
                #temp = v2e_vvvv_a[ab_ind_a[0],ab_ind_a[1],:,:]
                #temp = temp.reshape(-1,nvir_a*nvir_a)
                #r_aaa_t = r_aaa_u.reshape(nocc_a,-1)
@@ -2554,7 +2634,6 @@ def define_H_ea(direct_adc,t_amp):
                temp_c = np.dot(temp_b,r_bab_t).reshape(nocc_a,nvir_b,nvir_b)
                temp_2 = temp_c.transpose(0,2,1).copy() 
 
-               
                s[s_a:f_a] += 0.5*np.einsum('lzd,zlad->a',temp,v2e_vovv_a,optimize=True)
                s[s_a:f_a] += 0.5*np.einsum('lzd,zlad->a',temp_1,v2e_vovv_ab,optimize=True)
                s[s_a:f_a] -= 0.5*np.einsum('lzd,lzad->a',temp_2,v2e_ovvv_ab,optimize=True)
@@ -2578,10 +2657,10 @@ def define_H_ea(direct_adc,t_amp):
                s[s_b:f_b] += 0.5*np.einsum('lzd,zlad->a',temp,v2e_vovv_b,optimize=True)
                #s[s_b:f_b] += 0.5*np.einsum('lzd,lzda->a',temp_1,v2e_ovvv_ab,optimize=True)
                temp_a = temp_1.reshape(-1)
-               temp_b = v2e_ovvv_ab.reshape(nocc_a*nvir_b*nvir_a,-1)
+               temp_b = v2e_ovvv_ab[:].reshape(nocc_a*nvir_b*nvir_a,-1)
                s[s_b:f_b] += 0.5*np.dot(temp_a,temp_b)
+               del temp_b
                s[s_b:f_b] -= 0.5*np.einsum('lzd,zlda->a',temp_2,v2e_vovv_ab,optimize=True)
-
                if direct_adc.algorithm == "dynamical":
                    temp = np.zeros_like(r_bab,dtype=complex)
                else:
@@ -2621,8 +2700,9 @@ def define_H_ea(direct_adc,t_amp):
                s[s_b:f_b] -= 0.5*np.einsum('lwd,wlad->a',temp,v2e_vovv_b,optimize=True)
                #s[s_b:f_b] -= 0.5*np.einsum('lwd,lwda->a',temp_1,v2e_ovvv_ab,optimize=True)
                temp_a = temp_1.reshape(-1)
-               temp_b = v2e_ovvv_ab.reshape(nocc_a*nvir_b*nvir_a,-1)
-               s[s_b:f_b] -= 0.5*np.dot(temp_a,temp_b) 
+               temp_b = v2e_ovvv_ab[:].reshape(nocc_a*nvir_b*nvir_a,-1)
+               s[s_b:f_b] -= 0.5*np.dot(temp_a,temp_b)
+               del temp_b 
                s[s_b:f_b] += 0.5*np.einsum('lwd,wlda->a',temp_2,v2e_vovv_ab,optimize=True)
 
 ################ ADC(3) ibc - a block ############################
@@ -2779,7 +2859,8 @@ def solve_conjugate_gradients(direct_adc,apply_H,precond,T,r,omega,orb):
         # Compute RMS of the residual
         rms = np.linalg.norm(res)/np.sqrt(res.size)
         
-        print ("freq","   ",iomega,"   ","Iteration ", imacro, ": RMS = %8.4e" % rms)
+        #print ("freq","   ",iomega,"   ","Iteration ", imacro, "  ", "Precond","  ",d,": RMS = %8.4e" % rms)
+        print ("freq","   ",iomega,"   ","Iteration ", imacro, "  ",": RMS = %8.4e" % rms)
 
         if abs(rms) < direct_adc.tol:
             conv = True
@@ -2991,7 +3072,6 @@ def spec_factors_ip(direct_adc, t_amp, U):
     sys.stdout.flush()
 
     return P
-
 
 def spec_factors_ea(direct_adc, t_amp, U):
     start_time = time.time()
