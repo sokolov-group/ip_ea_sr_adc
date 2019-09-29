@@ -1,3 +1,6 @@
+#####################################
+### interface---IP/EA-ADC methods ###
+#####################################
 import sys
 import numpy as np
 from functools import reduce
@@ -6,14 +9,14 @@ import pyscf.lib
 import direct_adc_spin_integrated.direct_adc_compute as direct_adc_compute
 import direct_adc_spin_integrated.disk_helper as disk_helper
 
-
 class DirectADC:
     def __init__(self, mf):
 
         print ("Initializing Direct ADC...\n")
 
-        if "RHF" in str(type(mf)):                                                                                                                                                
-            print ("RHF reference detected")                                                                                                                                                 
+	## Storing MOs, MO energies and number of electrons for closed-shell systems ##
+        if "RHF" in str(type(mf)):
+            print ("RHF reference detected")
 
             mo = mf.mo_coeff.copy()
             self.nmo_a = mo.shape[1]
@@ -38,8 +41,9 @@ class DirectADC:
             self.mo_energy_b = mf.mo_energy.copy()
             self.e_scf = mf.e_tot
 
-        elif "UHF" in str(type(mf)):                                                                                                                                              
-            print ("UHF reference detected")                                                                                                                                                 
+	## Storing MOs, MO energies and number of electrons for open-shell systems ##
+        elif "UHF" in str(type(mf)):
+            print ("UHF reference detected")
 
             mo_a = mf.mo_coeff[0].copy()
             mo_b = mf.mo_coeff[1].copy()
@@ -70,47 +74,54 @@ class DirectADC:
             self.mo_energy_b = mf.mo_energy[1].copy()
             self.e_scf = mf.e_tot
 
-        else:                                                                                                                                                                     
-            raise Exception("ADC code is not implemented for this reference")                                                                                                     
+        else:
+            raise Exception("ADC code is not implemented for this reference")
 
-        # Direct ADC specific variables
-        self.nstates = 10
-        self.step = 0.01
-        self.freq_range = (-1.0, 0.0)
-        self.broadening = 0.01
-        self.tol = 1e-6
-        self.maxiter = 200
-        self.method = "adc(3)"
-        self.algorithm = "dynamical" # dynamical vs conventional vs cvs
-        self.freq_outer_loop = True #Controls if the frequency or the orbitals form the outer loop
+	##########################################################
+        ### ADC specific variables for different implementations##
+	##########################################################
+	#Unless specified otherwise in the input file these are the default parameters
+
+	###Variables common to all implementations###
 
         # IP or EA flags
-        self.EA = True
+        self.EA = True  # by default computes IP as well as EA
         self.IP = True
-        self.disk = False
+        self.method = "adc(3)" # Order of ADC used. Can be ADC(2), ADC(3) or ADC(2)-E
+        self.algorithm = "conventional" # Implementation used. Can be conventional, dynamical (for Green's Function) or CVS
+        self.disk = False    # Whether to use disk
 
-        # Davidson and CVS specific variables
+	### Conventional ADC ###
+        self.davidson = pyscf.lib.linalg_helper.davidson #Use of Davidson iterative algorithm for solving eigenvalue equation
+        self.nstates = 10    # Number of states requested
+        self.verbose = 6     # Verbose level
+        self.max_cycle = 150 # Maximum number of iterations
+        self.max_space = 12  # Space size to hold trial vectors
+
+	### Green's Function ADC ###
+        self.step = 0.01 # Step size
+        self.freq_range = (-1.0, 0.0) # Frequency range
+        self.broadening = 0.01        # Broadening parameter
+        self.tol = 1e-6               #Threshold for linear equations convergence
+        self.maxiter = 200            #Maximum number of iterations
+        self.freq_outer_loop = True   #True if frequency forms the outer loop. If False, orbitals form the outer loop
+
+	### CVS-ADC for core-ionization ###
         self.n_core = 5 # number of core spatial orbitals
-        self.verbose = 6 
-        self.max_cycle = 150
-        self.max_space = 12
 
-        self.davidson = pyscf.lib.linalg_helper.davidson
-
+	#################################
+	########## Integrals ############
+	#################################
         self.v2e = lambda:None
-
         self.h1e_ao = mf.get_hcore()
-
         if mf._eri is None:
             self.v2e_ao = mf.mol
         else:
             self.v2e_ao = mf._eri
 
-
     def kernel(self):
 
         self.transform_integrals()
-        
         if self.algorithm == "dynamical":
             direct_adc_compute.kernel(self)
         elif self.algorithm == "conventional" or self.algorithm == "cvs":
@@ -125,8 +136,7 @@ class DirectADC:
             disk_helper.remove_dataset(self.v2e.vvvv[1])
             disk_helper.remove_dataset(self.v2e.vvvv[2])
 
-
-    # Integral transformation
+    ### Integral transformation ###
     def transform_integrals(self):
         h1e_ao = self.h1e_ao
         self.h1e_a = reduce(np.dot, (self.mo_a.T, h1e_ao, self.mo_a))
@@ -141,7 +151,7 @@ class DirectADC:
         vir = vir_a, vir_b
 
         self.v2e.oovv = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,vir,vir))
-        self.v2e.vvvv = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,vir,vir), self.disk)
+        self.v2e.vvvv = transform_antisymmetrize_integrals(self.v2e_ao, (vir,vir,vir,vir))
         self.v2e.oooo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,occ,occ))
         self.v2e.voov = transform_antisymmetrize_integrals(self.v2e_ao, (vir,occ,occ,vir))
         self.v2e.ooov = transform_antisymmetrize_integrals(self.v2e_ao, (occ,occ,occ,vir))
@@ -157,7 +167,6 @@ class DirectADC:
         self.v2e.ovvo = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,vir,occ))
         self.v2e.ovvv = transform_antisymmetrize_integrals(self.v2e_ao, (occ,vir,vir,vir), self.disk)
 
-
 def transform_antisymmetrize_integrals(v2e_ao, mo, disk = False):
 
     mo_1, mo_2, mo_3, mo_4 = mo
@@ -170,7 +179,7 @@ def transform_antisymmetrize_integrals(v2e_ao, mo, disk = False):
     v2e_a = None
 #    if mf._eri is None:
 #        v2e_a = pyscf.ao2mo.general(mf.mol, (mo_1_a, mo_3_a, mo_2_a, mo_4_a), compact=False)
-#    else : 
+#    else :
 #        v2e_a = pyscf.ao2mo.general(mf._eri, (mo_1_a, mo_3_a, mo_2_a, mo_4_a), compact=False)
     v2e_a = pyscf.ao2mo.general(v2e_ao, (mo_1_a, mo_3_a, mo_2_a, mo_4_a), compact=False)
     v2e_a = v2e_a.reshape(mo_1_a.shape[1], mo_3_a.shape[1], mo_2_a.shape[1], mo_4_a.shape[1])
