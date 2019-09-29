@@ -4,7 +4,7 @@ import time
 from functools import reduce
 
 ###########################################
-# Computing dynamical IP-ADC #
+# Computing GF IP-ADC #
 ###########################################
 def kernel(direct_adc):
 
@@ -1635,7 +1635,7 @@ def define_H_ip(direct_adc,t_amp):
             r = cvs_projector(direct_adc, r)
 
         s = None
-        if direct_adc.algorithm == "dynamical":
+        if direct_adc.algorithm == "GF":
             z = np.zeros((dim))
             s = np.array(z,dtype = complex)
             s.imag = z
@@ -1692,7 +1692,7 @@ def define_H_ip(direct_adc,t_amp):
                r_bbb = r_bbb.reshape(nvir_b,-1)
 
                r_aaa_u = None
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a),dtype=complex)
                else:
                    r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a))
@@ -1700,7 +1700,7 @@ def define_H_ip(direct_adc,t_amp):
                r_aaa_u[:,ij_ind_a[1],ij_ind_a[0]]= -r_aaa.copy()   
 
                r_bbb_u = None
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b),dtype=complex)
                else:
                    r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b))
@@ -1812,14 +1812,14 @@ def define_H_ip(direct_adc,t_amp):
                temp_1 = np.einsum('jkbc,ajk->abc',t2_1_ab,r_aba, optimize=True)
                s[s_b:f_b] += np.einsum('abc,bcai->i',temp_1, v2e_vvvo_ab, optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a),dtype=complex)
                else:
                    r_aaa_u = np.zeros((nvir_a,nocc_a,nocc_a))
                r_aaa_u[:,ij_ind_a[0],ij_ind_a[1]]= r_aaa.copy()    
                r_aaa_u[:,ij_ind_a[1],ij_ind_a[0]]= -r_aaa.copy()    
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b),dtype=complex)
                else:
                    r_bbb_u = np.zeros((nvir_b,nocc_b,nocc_b))
@@ -1829,14 +1829,14 @@ def define_H_ip(direct_adc,t_amp):
                r_bab = r_bab.reshape(nvir_b,nocc_b,nocc_a)
                r_aba = r_aba.reshape(nvir_a,nocc_a,nocc_b)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp = np.zeros_like(r_bab)
                temp = np.einsum('jlab,ajk->blk',t2_1_a,r_aaa_u,optimize=True)
                temp += np.einsum('ljba,ajk->blk',t2_1_ab,r_bab,optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp_1 = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp_1 = np.zeros_like(r_bab)
@@ -1849,14 +1849,14 @@ def define_H_ip(direct_adc,t_amp):
                s[s_a:f_a] += 0.5*np.einsum('blk,ilkb->i',temp_1,v2e_ooov_ab,optimize=True)
                s[s_a:f_a] -= 0.5*np.einsum('blk,ilbk->i',temp_2,v2e_oovo_ab,optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp = np.zeros_like(r_aba,dtype=complex)
                else:
                    temp = np.zeros_like(r_aba)
                temp = np.einsum('jlab,ajk->blk',t2_1_b,r_bbb_u,optimize=True)
                temp += np.einsum('jlab,ajk->blk',t2_1_ab,r_aba,optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp_1 = np.zeros_like(r_aba,dtype=complex)
                else:
                    temp_1 = np.zeros_like(r_aba)
@@ -1869,14 +1869,14 @@ def define_H_ip(direct_adc,t_amp):
                s[s_b:f_b] += 0.5*np.einsum('blk,libk->i',temp_1,v2e_oovo_ab,optimize=True)
                s[s_b:f_b] -= 0.5*np.einsum('blk,likb->i',temp_2,v2e_ooov_ab,optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp = np.zeros_like(r_bab)
                temp = -np.einsum('klab,akj->blj',t2_1_a,r_aaa_u,optimize=True)
                temp -= np.einsum('lkba,akj->blj',t2_1_ab,r_bab,optimize=True)
                
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp_1 = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp_1 = np.zeros_like(r_bab)
@@ -1889,14 +1889,14 @@ def define_H_ip(direct_adc,t_amp):
                s[s_a:f_a] -= 0.5*np.einsum('blj,iljb->i',temp_1,v2e_ooov_ab,optimize=True)
                s[s_a:f_a] += 0.5*np.einsum('blj,ilbj->i',temp_2,v2e_oovo_ab,optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp = np.zeros_like(r_aba,dtype=complex)
                else:
                    temp = np.zeros_like(r_aba)
                temp = -np.einsum('klab,akj->blj',t2_1_b,r_bbb_u,optimize=True)
                temp -= np.einsum('klab,akj->blj',t2_1_ab,r_aba,optimize=True)
                
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp_1 = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp_1 = np.zeros_like(r_bab)
@@ -2388,7 +2388,7 @@ def define_H_ea(direct_adc,t_amp):
     def sigma_(r):
 
         s = None
-        if direct_adc.algorithm == "dynamical":
+        if direct_adc.algorithm == "GF":
             z = np.zeros((dim))
             s = np.array(z,dtype = complex)
             s.imag = z
@@ -2442,7 +2442,7 @@ def define_H_ea(direct_adc,t_amp):
                r_bbb = r_bbb.reshape(nocc_b,-1)
 
                r_aaa_u = None
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    r_aaa_u = np.zeros((nocc_a,nvir_a,nvir_a),dtype=complex)
                else:
                    r_aaa_u = np.zeros((nocc_a,nvir_a,nvir_a))
@@ -2450,7 +2450,7 @@ def define_H_ea(direct_adc,t_amp):
                r_aaa_u[:,ab_ind_a[1],ab_ind_a[0]]= -r_aaa.copy()
 
                r_bbb_u = None
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    r_bbb_u = np.zeros((nocc_b,nvir_b,nvir_b),dtype=complex)
                else:
                    r_bbb_u = np.zeros((nocc_b,nvir_b,nvir_b))
@@ -2593,14 +2593,14 @@ def define_H_ea(direct_adc,t_amp):
                temp_1 = -np.einsum('mlwz,jzw->jlm',t2_1_ab,r_aba)
                s[s_b:f_b] -= np.einsum('jlm,mlja->a',temp_1, v2e_ooov_ab, optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    r_aaa_u = np.zeros((nocc_a,nvir_a,nvir_a),dtype=complex)
                else:
                    r_aaa_u = np.zeros((nocc_a,nvir_a,nvir_a))
                r_aaa_u[:,ab_ind_a[0],ab_ind_a[1]]= r_aaa.copy()
                r_aaa_u[:,ab_ind_a[1],ab_ind_a[0]]= -r_aaa.copy()
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    r_bbb_u = np.zeros((nocc_b,nvir_b,nvir_b),dtype=complex)
                else:
                    r_bbb_u = np.zeros((nocc_b,nvir_b,nvir_b))
@@ -2610,7 +2610,7 @@ def define_H_ea(direct_adc,t_amp):
                r_bab = r_bab.reshape(nocc_b,nvir_a,nvir_b)
                r_aba = r_aba.reshape(nocc_a,nvir_b,nvir_a)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp = np.zeros_like(r_bab)
@@ -2618,7 +2618,7 @@ def define_H_ea(direct_adc,t_amp):
                temp = np.einsum('jlwd,jzw->lzd',t2_1_a,r_aaa_u,optimize=True)
                temp += np.einsum('ljdw,jzw->lzd',t2_1_ab,r_bab,optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp_1 = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp_1 = np.zeros_like(r_bab)
@@ -2638,14 +2638,14 @@ def define_H_ea(direct_adc,t_amp):
                s[s_a:f_a] += 0.5*np.einsum('lzd,zlad->a',temp_1,v2e_vovv_ab,optimize=True)
                s[s_a:f_a] -= 0.5*np.einsum('lzd,lzad->a',temp_2,v2e_ovvv_ab,optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp = np.zeros_like(r_aba,dtype=complex)
                else:
                    temp = np.zeros_like(r_aba)
                temp = np.einsum('jlwd,jzw->lzd',t2_1_b,r_bbb_u,optimize=True)
                temp += np.einsum('jlwd,jzw->lzd',t2_1_ab,r_aba,optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp_1 = np.zeros_like(r_aba,dtype=complex)
                else:
                    temp_1 = np.zeros_like(r_aba)
@@ -2661,14 +2661,14 @@ def define_H_ea(direct_adc,t_amp):
                s[s_b:f_b] += 0.5*np.dot(temp_a,temp_b)
                del temp_b
                s[s_b:f_b] -= 0.5*np.einsum('lzd,zlda->a',temp_2,v2e_vovv_ab,optimize=True)
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp = np.zeros_like(r_bab)
                temp = -np.einsum('jlzd,jwz->lwd',t2_1_a,r_aaa_u,optimize=True)
                temp += -np.einsum('ljdz,jwz->lwd',t2_1_ab,r_bab,optimize=True)
                
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp_1 = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp_1 = np.zeros_like(r_bab)
@@ -2681,14 +2681,14 @@ def define_H_ea(direct_adc,t_amp):
                s[s_a:f_a] -= 0.5*np.einsum('lwd,wlad->a',temp_1,v2e_vovv_ab,optimize=True)
                s[s_a:f_a] += 0.5*np.einsum('lwd,lwad->a',temp_2,v2e_ovvv_ab,optimize=True)
 
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp = np.zeros_like(r_aba,dtype=complex)
                else:
                    temp = np.zeros_like(r_aba)
                temp = -np.einsum('jlzd,jwz->lwd',t2_1_b,r_bbb_u,optimize=True)
                temp += -np.einsum('jlzd,jwz->lwd',t2_1_ab,r_aba,optimize=True)
                
-               if direct_adc.algorithm == "dynamical":
+               if direct_adc.algorithm == "GF":
                    temp_1 = np.zeros_like(r_bab,dtype=complex)
                else:
                    temp_1 = np.zeros_like(r_bab)
@@ -2779,12 +2779,12 @@ def define_H_ea(direct_adc,t_amp):
                temp_1= -np.einsum('lyd,ildx->ixy',temp,t2_1_ab,optimize=True)
                s[s_aba:f_aba] -= temp_1.reshape(-1)
 
-        if (direct_adc.algorithm == "dynamical"):
+        if (direct_adc.algorithm == "GF"):
             s *= -1.0
 
         return s
 
-    if (direct_adc.algorithm == "dynamical"):
+    if (direct_adc.algorithm == "GF"):
 
         precond_ = -precond.copy()
         M_ab_a_ = -M_ab_a.copy()

@@ -88,7 +88,7 @@ class DirectADC:
         self.EA = True  # by default computes IP as well as EA
         self.IP = True
         self.method = "adc(3)" # Order of ADC used. Can be ADC(2), ADC(3) or ADC(2)-E
-        self.algorithm = "conventional" # Implementation used. Can be conventional, dynamical (for Green's Function) or CVS
+        self.algorithm = "conventional" # Implementation used. Can be conventional, GF (for Green's Function) or CVS
         self.disk = False    # Whether to use disk
 
 	### Conventional ADC ###
@@ -122,12 +122,10 @@ class DirectADC:
     def kernel(self):
 
         self.transform_integrals()
-        if self.algorithm == "dynamical":
+        if self.algorithm == "GF":
             direct_adc_compute.kernel(self)
         elif self.algorithm == "conventional" or self.algorithm == "cvs":
             direct_adc_compute.conventional(self)
-        elif self.algorithm == "mom_conventional":
-            direct_adc_compute.mom_conventional(self)
         else:
             raise Exception("Algorithm is not recognized")
 
