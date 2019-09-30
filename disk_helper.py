@@ -1,3 +1,8 @@
+/***********************************************************************************
+ * Copyright (C) 2019 Samragni Banerjee & Alexander Yu. Sokolov -All Rights Reserved
+ * This file is part of IP/EA-ADC.
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ ***********************************************************************************/
 import os
 import h5py
 import tempfile

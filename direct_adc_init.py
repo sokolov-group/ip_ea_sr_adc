@@ -1,3 +1,8 @@
+/***********************************************************************************
+ * Copyright (C) 2019 Samragni Banerjee & Alexander Yu. Sokolov -All Rights Reserved
+ * This file is part of IP/EA-ADC.
+ * Unauthorized copying of this file, via any medium is strictly prohibited
+ ***********************************************************************************/
 #####################################
 ### interface---IP/EA-ADC methods ###
 #####################################
@@ -217,7 +222,7 @@ def transform_antisymmetrize_integrals(v2e_ao, mo, disk = False):
         v2e_temp = None
 #        if mf._eri is None :
 #            v2e_temp = pyscf.ao2mo.general(mf.mol, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
-#        else : 
+#        else :
 #            v2e_temp = pyscf.ao2mo.general(mf._eri, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
         v2e_temp = pyscf.ao2mo.general(v2e_ao, (mo_1_b, mo_4_b, mo_2_b, mo_3_b), compact=False)
         v2e_temp = v2e_temp.reshape(mo_1_b.shape[1], mo_4_b.shape[1], mo_2_b.shape[1], mo_3_b.shape[1])
